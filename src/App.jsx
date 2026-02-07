@@ -12,7 +12,7 @@ import {
   Medal, Calendar, Zap, CheckCircle2, AlertCircle, Clock, Lock, Unlock,
   Hash, Calculator, Users, ShieldCheck, ListChecks, Settings, Flag, Check, LogOut, KeyRound
 } from 'lucide-react';
-
+import { Analytics } from "@vercel/analytics/next"
 // --- FIREBASE CONFIGURATION ---
 const LOCAL_CONFIG = {
   apiKey: "AIzaSyCHxfdfQArKPjr7WW0B8bnv0zW8aAKU27w",
