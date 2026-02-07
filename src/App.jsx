@@ -155,6 +155,9 @@ export default function App() {
   const [fantasyTeams, setFantasyTeams] = useState([]);
   const [playerRegistry, setPlayerRegistry] = useState({});
   const [processedMatchIds, setProcessedMatchIds] = useState([]);
+  const [matchResults, setMatchResults] = useState({}); // { matchId: { playerName: points } }
+  const [teamMatchRewards, setTeamMatchRewards] = useState({}); // { matchId: { teamId: points } }
+
 
   // --- AUTH STATE ---
   const [isAdmin, setIsAdmin] = useState(false);
@@ -235,6 +238,8 @@ export default function App() {
           if (data.metadata) {
             setProcessedMatchIds(data.metadata.processedMatchIds || []);
             setIsLineupLocked(data.metadata.isLineupLocked || false);
+            setMatchResults(data.metadata.matchResults || {});
+            setTeamMatchRewards(data.metadata.teamMatchRewards || {});
           }
           setCloudStatus("connected");
           setLastSynced(new Date());
@@ -251,6 +256,16 @@ export default function App() {
     const interval = setInterval(fetchSync, 3000); // Poll every 3s
     return () => clearInterval(interval);
   }, []);
+
+  // Pre-fill Modal for Updates
+  useEffect(() => {
+    if (resolvingMatch && matchResults[resolvingMatch.id]) {
+      setManualPoints(matchResults[resolvingMatch.id]);
+    } else {
+      setManualPoints({});
+    }
+  }, [resolvingMatch]);
+
 
   // --- MEMOIZED DATA ---
   const sortedTeams = useMemo(() => [...fantasyTeams].sort((a, b) => b.points - a.points), [fantasyTeams]);
@@ -311,7 +326,9 @@ export default function App() {
 
       const metadata = {
         isLineupLocked: false,
-        processedMatchIds: []
+        processedMatchIds: [],
+        matchResults: {},
+        teamMatchRewards: {}
       };
 
       await api.seed(teams, metadata);
@@ -334,45 +351,75 @@ export default function App() {
     if (!resolvingMatch) return;
 
     // 1. Calculate points earned IN THIS MATCH for all teams
-    const updatedFantasyTeams = fantasyTeams.map(team => {
-      let matchScore = 0;
+    const currentMatchRewards = {};
+    fantasyTeams.forEach(team => {
+      let teamMatchScore = 0;
       team.playingXINames.forEach(playerName => {
-        const pointsScoredInMatch = Number(manualPoints[playerName] || 0);
-        if (pointsScoredInMatch > 0) {
-          let multiplier = 1;
-          if (playerName === team.captainName) multiplier = 2;
-          else if (playerName === team.viceCaptainName) multiplier = 1.5;
-          matchScore += (pointsScoredInMatch * multiplier);
+        const pointsInMatch = Number(manualPoints[playerName] || 0);
+        if (pointsInMatch > 0) {
+          let mult = 1;
+          if (playerName === team.captainName) mult = 2;
+          else if (playerName === team.viceCaptainName) mult = 1.5;
+          teamMatchScore += (pointsInMatch * mult);
         }
       });
-      // Accumulate points
-      return { ...team, points: (team.points || 0) + Math.floor(matchScore) };
+      currentMatchRewards[team.id] = Math.floor(teamMatchScore);
     });
 
-    // 2. Update Registry
-    const newRegistry = { ...playerRegistry };
-    Object.keys(manualPoints).forEach(playerName => {
-      const current = newRegistry[playerName] || { points: 0 };
-      newRegistry[playerName] = { points: (current.points || 0) + Number(manualPoints[playerName]) };
+    // 2. Prepare new results maps
+    const newMatchResults = { ...matchResults, [resolvingMatch.id]: manualPoints };
+    const newTeamRewards = { ...teamMatchRewards, [resolvingMatch.id]: currentMatchRewards };
+    if (!processedMatchIds.includes(resolvingMatch.id)) {
+      setProcessedMatchIds([...processedMatchIds, resolvingMatch.id]);
+    }
+
+    // 3. RECALCULATE GLOBAL TOTALS (The Source of Truth)
+    // Team Totals
+    const updatedFantasyTeams = fantasyTeams.map(team => {
+      let totalPoints = 0;
+      Object.keys(newTeamRewards).forEach(mId => {
+        totalPoints += (newTeamRewards[mId][team.id] || 0);
+      });
+      return { ...team, points: totalPoints };
     });
 
-    const newProcessedIds = [...processedMatchIds, resolvingMatch.id];
+    // Player Totals (Registry)
+    const newRegistry = {};
+    Object.keys(newMatchResults).forEach(mId => {
+      const matchPoints = newMatchResults[mId];
+      Object.keys(matchPoints).forEach(pName => {
+        if (!newRegistry[pName]) newRegistry[pName] = { points: 0 };
+        newRegistry[pName].points += Number(matchPoints[pName]);
+      });
+    });
+
+    const newProcessedIds = processedMatchIds.includes(resolvingMatch.id)
+      ? processedMatchIds
+      : [...processedMatchIds, resolvingMatch.id];
 
     try {
       await api.updateRegistry(newRegistry);
       await api.updateTeams(updatedFantasyTeams);
-      await api.updateMetadata({ processedMatchIds: newProcessedIds, isLineupLocked });
+      await api.updateMetadata({
+        processedMatchIds: newProcessedIds,
+        isLineupLocked,
+        matchResults: newMatchResults,
+        teamMatchRewards: newTeamRewards
+      });
 
       // Optimistic Update
       setPlayerRegistry(newRegistry);
       setFantasyTeams(updatedFantasyTeams);
       setProcessedMatchIds(newProcessedIds);
+      setMatchResults(newMatchResults);
+      setTeamMatchRewards(newTeamRewards);
 
     } catch (e) { console.error(e); alert("Failed to save score"); }
 
     setResolvingMatch(null);
     setManualPoints({});
   };
+
 
   if (loading) return (
     <div className="min-h-screen bg-[#0b0f1a] flex flex-col items-center justify-center text-white">
@@ -648,6 +695,7 @@ export default function App() {
                               onWheel={(e) => e.target.blur()}
                               className="w-16 bg-black/40 border border-white/10 rounded-lg p-2 text-right text-white font-mono text-sm font-bold focus:border-blue-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               placeholder="-"
+                              value={manualPoints[p.name] || ""}
                               onChange={(e) => setManualPoints({ ...manualPoints, [p.name]: e.target.value })}
                             />
                           </div>
