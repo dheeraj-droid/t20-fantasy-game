@@ -13,6 +13,7 @@ import {
   Hash, Calculator, Users, ShieldCheck, ListChecks, Settings, Flag, Check, LogOut, KeyRound
 } from 'lucide-react';
 import { Analytics } from "@vercel/analytics/react"
+
 const LOCAL_CONFIG = {
   apiKey: "AIzaSyCHxfdfQArKPjr7WW0B8bnv0zW8aAKU27w",
   authDomain: "rrrr-a9f95.firebaseapp.com",
@@ -256,6 +257,7 @@ export default function App() {
       return () => clearTimeout(safetyTimer);
     }
 
+    // 1.a Initialize Auth & Data
     const initAuth = async () => {
       try {
         const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
@@ -263,6 +265,9 @@ export default function App() {
         else await signInAnonymously(auth);
       } catch (e) {
         console.error("Auth failed", e);
+        if (e.code === 'auth/configuration-not-found' || e.code === 'auth/admin-restricted-operation') {
+          firebaseAvailable = false; // Silent Fallback
+        }
         initializeLocalData();
         setLoading(false);
       }
@@ -380,64 +385,89 @@ export default function App() {
   };
 
   // --- SAFE SYNC ACTIONS ---
+
+
+
+
   const handleSeedDatabase = async () => {
-    if (!firebaseAvailable) return;
+    if (!firebaseAvailable) {
+      alert("Firebase is not connected (Local Mode). Cannot seed database.");
+      return;
+    }
     if (!window.confirm("WARNING: This will RESET the Cloud Database with initial rosters. Are you sure?")) return;
 
-    setLoading(true);
-    // 1. Seed Teams
-    const batchTeams = Object.keys(FANTASY_ROSTERS).map((groupName, i) => ({
-      id: `g${i + 1}`,
-      name: groupName,
-      points: 0,
-      captainName: "",
-      viceCaptainName: "",
-      playingXINames: [],
-      players: FANTASY_ROSTERS[groupName].map(name => ({ name }))
-    }));
-    const teamPromises = batchTeams.map(t => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teams', t.id), t));
+    try {
+      setLoading(true);
+      console.log("Starting Database Seed...");
 
-    // 2. Seed Metadata
-    const metaPromise = setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'metadata', 'global'), {
-      isLineupLocked: false,
-      processedMatchIds: []
-    });
+      // 1. Seed Teams
+      const batchTeams = Object.keys(FANTASY_ROSTERS).map((groupName, i) => ({
+        id: `g${i + 1}`,
+        name: groupName,
+        points: 0,
+        captainName: "",
+        viceCaptainName: "",
+        playingXINames: [],
+        players: FANTASY_ROSTERS[groupName].map(name => ({ name }))
+      }));
 
-    await Promise.all([...teamPromises, metaPromise]);
-    setLoading(false);
-    alert("Database Seeded Successfully! All devices will sync now.");
+      console.log("Seeding Teams...", batchTeams);
+      const teamPromises = batchTeams.map(t => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teams', t.id), t));
+
+      // 2. Seed Metadata
+      console.log("Seeding Metadata...");
+      const metaPromise = setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'metadata', 'global'), {
+        isLineupLocked: false,
+        processedMatchIds: []
+      });
+
+      await Promise.all([...teamPromises, metaPromise]);
+      console.log("Seed Complete!");
+      setLoading(false);
+      alert("Database Seeded Successfully! All devices will sync now.");
+    } catch (error) {
+      console.error("SEEDING ERROR:", error);
+      setLoading(false);
+      alert(`Error Seeding Database: ${error.message}. Check console for details.`);
+    }
   };
 
   const handleRestoreLocal = async () => {
     if (!firebaseAvailable) return;
-    setLoading(true);
-    const savedTeams = localStorage.getItem('fantasyTeams');
-    const savedReg = localStorage.getItem('playerRegistry');
-    const savedMatchIds = localStorage.getItem('processedMatchIds');
-    const savedLock = localStorage.getItem('isLineupLocked');
 
-    if (savedTeams) {
-      const teams = JSON.parse(savedTeams);
-      await Promise.all(teams.map(t => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teams', t.id), t)));
+    try {
+      setLoading(true);
+      console.log("Starting Local Restore...");
+      const savedTeams = localStorage.getItem('fantasyTeams');
+      const savedReg = localStorage.getItem('playerRegistry');
+      const savedMatchIds = localStorage.getItem('processedMatchIds');
+      const savedLock = localStorage.getItem('isLineupLocked');
+
+      if (savedTeams) {
+        const teams = JSON.parse(savedTeams);
+        await Promise.all(teams.map(t => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teams', t.id), t)));
+      }
+
+      if (savedReg) {
+        const reg = JSON.parse(savedReg);
+        await Promise.all(Object.entries(reg).map(([k, v]) => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'playerRegistry', k), v)));
+      }
+
+      const meta = {
+        isLineupLocked: savedLock ? JSON.parse(savedLock) : false,
+        processedMatchIds: savedMatchIds ? JSON.parse(savedMatchIds) : []
+      };
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'metadata', 'global'), meta);
+
+      setLoading(false);
+      setShowRestorePrompt(false);
+      alert("Local Data Restored to Cloud!");
+    } catch (error) {
+      console.error("RESTORE ERROR:", error);
+      setLoading(false);
+      alert(`Error Restoring Data: ${error.message}`);
     }
-
-    if (savedReg) {
-      const reg = JSON.parse(savedReg);
-      await Promise.all(Object.entries(reg).map(([k, v]) => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'playerRegistry', k), v)));
-    }
-
-    const meta = {
-      isLineupLocked: savedLock ? JSON.parse(savedLock) : false,
-      processedMatchIds: savedMatchIds ? JSON.parse(savedMatchIds) : []
-    };
-    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'metadata', 'global'), meta);
-
-    setLoading(false);
-    setShowRestorePrompt(false);
-    alert("Local Data Restored to Cloud!");
   };
-
-
 
   const handleScoreSubmit = async () => {
     if (!resolvingMatch) return;
