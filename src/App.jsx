@@ -13,7 +13,6 @@ import {
   Hash, Calculator, Users, ShieldCheck, ListChecks, Settings, Flag, Check, LogOut, KeyRound
 } from 'lucide-react';
 import { Analytics } from "@vercel/analytics/react"
-// --- FIREBASE CONFIGURATION ---
 const LOCAL_CONFIG = {
   apiKey: "AIzaSyCHxfdfQArKPjr7WW0B8bnv0zW8aAKU27w",
   authDomain: "rrrr-a9f95.firebaseapp.com",
@@ -204,6 +203,10 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   /* 0. SYSTEM CLOCK */
+  const [lastSynced, setLastSynced] = useState(null);
+  const [cloudStatus, setCloudStatus] = useState("connecting"); // connecting, connected, disconnected, empty
+  const [showRestorePrompt, setShowRestorePrompt] = useState(false);
+
   useEffect(() => {
     const timer = setInterval(() => setSystemTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -299,49 +302,26 @@ export default function App() {
     if (!firebaseAvailable || !user) return;
 
     const unsubTeams = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'teams'), async (snap) => {
+      setLastSynced(new Date());
       if (snap.empty) {
-        // --- SMART SYNC START: Check if we have LOCAL data to Restore ---
+        setCloudStatus("empty");
         const savedTeams = localStorage.getItem('fantasyTeams');
         if (savedTeams) {
-          console.log("Cloud Empty! Restoring from Local Storage...");
-          const localTeams = JSON.parse(savedTeams);
-          // Upload Local Data to Cloud
-          const batchPromises = localTeams.map(t => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teams', t.id), t));
-          await Promise.all(batchPromises);
-          setFantasyTeams(localTeams); // Optimistic update
+          setShowRestorePrompt(true); // ASK USER instead of auto-uploading
         } else {
-          // Initialize DB with defaults if NO local data
-          const batchTeams = Object.keys(FANTASY_ROSTERS).map((groupName, i) => ({
-            id: `g${i + 1}`,
-            name: groupName,
-            points: 0,
-            captainName: "",
-            viceCaptainName: "",
-            playingXINames: [],
-            players: FANTASY_ROSTERS[groupName].map(name => ({ name }))
-          }));
-          setFantasyTeams(batchTeams);
-          batchTeams.forEach(t => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teams', t.id), t));
+          // New Device, Empty Cloud -> Waiting for Admin Seed
+          setFantasyTeams([]);
         }
-        // --- SMART SYNC END ---
       } else {
+        setCloudStatus("connected");
+        setShowRestorePrompt(false);
         setFantasyTeams(snap.docs.map(d => d.data()));
       }
-      setLoading(false); // Valid data received
+      setLoading(false);
     });
 
     const unsubReg = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'playerRegistry'), async (snap) => {
-      if (snap.empty) {
-        // Attempt Restore
-        const savedReg = localStorage.getItem('playerRegistry');
-        if (savedReg) {
-          const localReg = JSON.parse(savedReg);
-          Object.entries(localReg).forEach(([name, data]) => {
-            setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'playerRegistry', name), data);
-          });
-          setPlayerRegistry(localReg);
-        }
-      } else {
+      if (!snap.empty) {
         const reg = {};
         snap.docs.forEach(d => reg[d.id] = d.data());
         setPlayerRegistry(reg);
@@ -354,18 +334,9 @@ export default function App() {
         setProcessedMatchIds(data.processedMatchIds || []);
         setIsLineupLocked(data.isLineupLocked || false);
       } else {
-        // Attempt Restore
-        const savedMatchIds = localStorage.getItem('processedMatchIds');
-        const savedLock = localStorage.getItem('isLineupLocked');
-        const initIds = savedMatchIds ? JSON.parse(savedMatchIds) : [];
-        const initLock = savedLock ? JSON.parse(savedLock) : false;
-
-        setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'metadata', 'global'), {
-          isLineupLocked: initLock,
-          processedMatchIds: initIds
-        });
-        setProcessedMatchIds(initIds);
-        setIsLineupLocked(initLock);
+        // Should wait for restore or seed
+        setProcessedMatchIds([]);
+        setIsLineupLocked(false);
       }
     });
 
@@ -407,6 +378,66 @@ export default function App() {
       setIsLineupLocked(newState);
     }
   };
+
+  // --- SAFE SYNC ACTIONS ---
+  const handleSeedDatabase = async () => {
+    if (!firebaseAvailable) return;
+    if (!window.confirm("WARNING: This will RESET the Cloud Database with initial rosters. Are you sure?")) return;
+
+    setLoading(true);
+    // 1. Seed Teams
+    const batchTeams = Object.keys(FANTASY_ROSTERS).map((groupName, i) => ({
+      id: `g${i + 1}`,
+      name: groupName,
+      points: 0,
+      captainName: "",
+      viceCaptainName: "",
+      playingXINames: [],
+      players: FANTASY_ROSTERS[groupName].map(name => ({ name }))
+    }));
+    const teamPromises = batchTeams.map(t => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teams', t.id), t));
+
+    // 2. Seed Metadata
+    const metaPromise = setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'metadata', 'global'), {
+      isLineupLocked: false,
+      processedMatchIds: []
+    });
+
+    await Promise.all([...teamPromises, metaPromise]);
+    setLoading(false);
+    alert("Database Seeded Successfully! All devices will sync now.");
+  };
+
+  const handleRestoreLocal = async () => {
+    if (!firebaseAvailable) return;
+    setLoading(true);
+    const savedTeams = localStorage.getItem('fantasyTeams');
+    const savedReg = localStorage.getItem('playerRegistry');
+    const savedMatchIds = localStorage.getItem('processedMatchIds');
+    const savedLock = localStorage.getItem('isLineupLocked');
+
+    if (savedTeams) {
+      const teams = JSON.parse(savedTeams);
+      await Promise.all(teams.map(t => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teams', t.id), t)));
+    }
+
+    if (savedReg) {
+      const reg = JSON.parse(savedReg);
+      await Promise.all(Object.entries(reg).map(([k, v]) => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'playerRegistry', k), v)));
+    }
+
+    const meta = {
+      isLineupLocked: savedLock ? JSON.parse(savedLock) : false,
+      processedMatchIds: savedMatchIds ? JSON.parse(savedMatchIds) : []
+    };
+    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'metadata', 'global'), meta);
+
+    setLoading(false);
+    setShowRestorePrompt(false);
+    alert("Local Data Restored to Cloud!");
+  };
+
+
 
   const handleScoreSubmit = async () => {
     if (!resolvingMatch) return;
@@ -475,9 +506,20 @@ export default function App() {
             {/* MODE INDICATOR */}
             <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-2 border ${firebaseAvailable ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'}`}>
               <Activity size={12} />
-              {firebaseAvailable ? "Live Cloud" : "Local Mode"}
+              {firebaseAvailable ? (cloudStatus === 'connected' ? "Live Sync" : "Waiting for Cloud") : "Local Mode"}
+              {lastSynced && <span className="text-[8px] opacity-60 ml-1">{lastSynced.toLocaleTimeString()}</span>}
             </div>
           </div>
+
+          {showRestorePrompt && (
+            <div className="mt-4 p-3 bg-blue-600/20 border border-blue-500/50 rounded-xl flex items-center gap-4 animate-pulse">
+              <AlertCircle className="text-blue-400" size={20} />
+              <div>
+                <p className="text-xs font-bold text-white uppercase">Cloud is Empty, but Local Data Found!</p>
+                <button onClick={handleRestoreLocal} className="mt-1 text-[10px] bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded-lg text-white font-black uppercase">Restore to Cloud</button>
+              </div>
+            </div>
+          )}
 
           <div className="flex bg-slate-900/80 p-1 rounded-xl border border-white/5 mt-4 w-fit">
             {['leaderboard', 'matches', 'mvp'].map(tab => (
@@ -497,6 +539,13 @@ export default function App() {
                   className={`text-[10px] font-black uppercase flex items-center gap-2 hover:text-white transition-all ${isLineupLocked ? 'text-green-400' : 'text-red-400'}`}
                 >
                   {isLineupLocked ? "Unlock Market" : "Lock Market"}
+                </button>
+                <div className="w-px h-4 bg-purple-500/20"></div>
+                <button
+                  onClick={handleSeedDatabase}
+                  className="text-[10px] font-black uppercase flex items-center gap-2 text-blue-400 hover:text-white transition-all"
+                >
+                  <RefreshCw size={12} /> Seed DB
                 </button>
               </div>
               <button onClick={() => setIsAdmin(false)} className="p-3 bg-slate-800 hover:bg-red-600 rounded-xl text-slate-400 hover:text-white transition-all"><LogOut size={16} /></button>
