@@ -42,7 +42,8 @@ try {
 }
 
 // --- CONSTANTS ---
-const INITIAL_SYSTEM_TIME = new Date("2026-02-20T19:02:00");
+// const INITIAL_SYSTEM_TIME = new Date("2026-02-20T19:02:00");
+const INITIAL_SYSTEM_TIME = new Date();
 const MATCH_DURATION_HOURS = 4;
 
 // ---------------------------------------------------------
@@ -200,6 +201,12 @@ export default function App() {
   const [manualPoints, setManualPoints] = useState({});
   const [systemTime, setSystemTime] = useState(INITIAL_SYSTEM_TIME);
   const [loading, setLoading] = useState(true);
+
+  /* 0. SYSTEM CLOCK */
+  useEffect(() => {
+    const timer = setInterval(() => setSystemTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // 1. Initialization (With Safety Timeout)
   useEffect(() => {
