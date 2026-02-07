@@ -23,6 +23,7 @@ const LOCAL_CONFIG = {
   appId: "1:1061845664907:web:a035a069a98b783743808e",
   measurementId: "G-FWNSCFY023"
 };
+// const LOCAL_CONFIG = null; // Forces local mode unless ENV vars are set
 let firebaseApp, auth, db, appId;
 let firebaseAvailable = false;
 
@@ -297,32 +298,54 @@ export default function App() {
   useEffect(() => {
     if (!firebaseAvailable || !user) return;
 
-    const unsubTeams = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'teams'), (snap) => {
+    const unsubTeams = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'teams'), async (snap) => {
       if (snap.empty) {
-        // Initialize DB if empty
-        const batchTeams = Object.keys(FANTASY_ROSTERS).map((groupName, i) => ({
-          id: `g${i + 1}`,
-          name: groupName,
-          points: 0,
-          captainName: "", // INITIALIZE EMPTY
-          viceCaptainName: "", // INITIALIZE EMPTY
-          playingXINames: [], // INITIALIZE EMPTY
-          players: FANTASY_ROSTERS[groupName].map(name => ({ name }))
-        }));
-
-        // We set local state first to be responsive
-        setFantasyTeams(batchTeams);
-        batchTeams.forEach(t => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teams', t.id), t));
+        // --- SMART SYNC START: Check if we have LOCAL data to Restore ---
+        const savedTeams = localStorage.getItem('fantasyTeams');
+        if (savedTeams) {
+          console.log("Cloud Empty! Restoring from Local Storage...");
+          const localTeams = JSON.parse(savedTeams);
+          // Upload Local Data to Cloud
+          const batchPromises = localTeams.map(t => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teams', t.id), t));
+          await Promise.all(batchPromises);
+          setFantasyTeams(localTeams); // Optimistic update
+        } else {
+          // Initialize DB with defaults if NO local data
+          const batchTeams = Object.keys(FANTASY_ROSTERS).map((groupName, i) => ({
+            id: `g${i + 1}`,
+            name: groupName,
+            points: 0,
+            captainName: "",
+            viceCaptainName: "",
+            playingXINames: [],
+            players: FANTASY_ROSTERS[groupName].map(name => ({ name }))
+          }));
+          setFantasyTeams(batchTeams);
+          batchTeams.forEach(t => setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'teams', t.id), t));
+        }
+        // --- SMART SYNC END ---
       } else {
         setFantasyTeams(snap.docs.map(d => d.data()));
       }
       setLoading(false); // Valid data received
     });
 
-    const unsubReg = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'playerRegistry'), (snap) => {
-      const reg = {};
-      snap.docs.forEach(d => reg[d.id] = d.data());
-      setPlayerRegistry(reg);
+    const unsubReg = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'playerRegistry'), async (snap) => {
+      if (snap.empty) {
+        // Attempt Restore
+        const savedReg = localStorage.getItem('playerRegistry');
+        if (savedReg) {
+          const localReg = JSON.parse(savedReg);
+          Object.entries(localReg).forEach(([name, data]) => {
+            setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'playerRegistry', name), data);
+          });
+          setPlayerRegistry(localReg);
+        }
+      } else {
+        const reg = {};
+        snap.docs.forEach(d => reg[d.id] = d.data());
+        setPlayerRegistry(reg);
+      }
     });
 
     const unsubMeta = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'metadata', 'global'), (snap) => {
@@ -331,7 +354,18 @@ export default function App() {
         setProcessedMatchIds(data.processedMatchIds || []);
         setIsLineupLocked(data.isLineupLocked || false);
       } else {
-        setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'metadata', 'global'), { isLineupLocked: false, processedMatchIds: [] });
+        // Attempt Restore
+        const savedMatchIds = localStorage.getItem('processedMatchIds');
+        const savedLock = localStorage.getItem('isLineupLocked');
+        const initIds = savedMatchIds ? JSON.parse(savedMatchIds) : [];
+        const initLock = savedLock ? JSON.parse(savedLock) : false;
+
+        setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'metadata', 'global'), {
+          isLineupLocked: initLock,
+          processedMatchIds: initIds
+        });
+        setProcessedMatchIds(initIds);
+        setIsLineupLocked(initLock);
       }
     });
 
