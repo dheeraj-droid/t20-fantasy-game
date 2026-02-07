@@ -9,7 +9,7 @@ import {
 import { Analytics } from "@vercel/analytics/react"
 
 // --- CONSTANTS ---
- const INITIAL_SYSTEM_TIME = new Date("2026-02-21T19:02:00");
+const INITIAL_SYSTEM_TIME = new Date("2026-02-21T19:02:00");
 //const INITIAL_SYSTEM_TIME = new Date();
 const MATCH_DURATION_HOURS = 4;
 
@@ -206,7 +206,11 @@ export default function App() {
   };
 
   useEffect(() => {
-    const timer = setInterval(() => setSystemTime(new Date()), 1000);
+    const startRealTime = Date.now();
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - startRealTime;
+      setSystemTime(new Date(INITIAL_SYSTEM_TIME.getTime() + elapsed));
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
 
