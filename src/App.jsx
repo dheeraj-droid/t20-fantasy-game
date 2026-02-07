@@ -709,9 +709,12 @@ export default function App() {
                           {isProcessed ? "Update Points" : "Enter Points"}
                         </button>
                       ) : (
-                        <div className={`w-full py-3 rounded-xl text-[10px] font-black text-center uppercase tracking-widest border border-white/5 flex items-center justify-center gap-2 ${isProcessed ? 'bg-green-500/10 text-green-500' : 'bg-slate-800 text-slate-500'}`}>
-                          {isProcessed ? "Updated" : <><Lock size={12} /> Admin Only</>}
-                        </div>
+                        <button
+                          onClick={() => setResolvingMatch(m)}
+                          className={`w-full py-3 rounded-xl text-[10px] font-black text-center uppercase tracking-widest border border-white/5 flex items-center justify-center gap-2 transition-all ${isProcessed ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20 hover:text-green-400' : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'}`}
+                        >
+                          {isProcessed ? "View Points" : <><Lock size={12} /> Admin Only</>}
+                        </button>
                       )
                     ) : (
                       <div className="w-full py-3 bg-white/5 rounded-xl text-[10px] font-black text-center text-slate-600 uppercase tracking-widest border border-white/5">
@@ -808,7 +811,7 @@ export default function App() {
               <div className="p-8 border-b border-white/5 bg-gradient-to-r from-blue-900/20 to-purple-900/20 flex justify-between items-center">
                 <div>
                   <h3 className="text-2xl font-black italic uppercase text-white">Score: {resolvingMatch.teams}</h3>
-                  <p className="text-[10px] text-blue-400 font-black uppercase tracking-[0.2em] mt-1">Admin Mode: Points are added to Team Totals</p>
+                  <p className="text-[10px] text-blue-400 font-black uppercase tracking-[0.2em] mt-1">{isAdmin ? "Admin Mode: Points are added to Team Totals" : "Read Only Mode: Match Points"}</p>
                 </div>
                 <button onClick={() => setResolvingMatch(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400"><X size={28} /></button>
               </div>
@@ -829,11 +832,12 @@ export default function App() {
                             </div>
                             <input
                               type="number"
+                              disabled={!isAdmin}
                               onWheel={(e) => e.target.blur()}
-                              className="w-16 bg-black/40 border border-white/10 rounded-lg p-2 text-right text-white font-mono text-sm font-bold focus:border-blue-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className={`w-16 bg-black/40 border border-white/10 rounded-lg p-2 text-right text-white font-mono text-sm font-bold focus:border-blue-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${!isAdmin ? 'opacity-50 cursor-default' : ''}`}
                               placeholder="-"
                               value={manualPoints[p.name] || ""}
-                              onChange={(e) => setManualPoints({ ...manualPoints, [p.name]: e.target.value })}
+                              onChange={(e) => isAdmin && setManualPoints({ ...manualPoints, [p.name]: e.target.value })}
                             />
                           </div>
                         ))}
@@ -842,9 +846,11 @@ export default function App() {
                   ))}
                 </div>
               </div>
-              <div className="p-8 border-t border-white/5 bg-slate-950/50">
-                <button onClick={handleScoreSubmit} className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all">Confirm & Add Points</button>
-              </div>
+              {isAdmin && (
+                <div className="p-8 border-t border-white/5 bg-slate-950/50">
+                  <button onClick={handleScoreSubmit} className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all">Confirm & Add Points</button>
+                </div>
+              )}
             </div>
           </div>
         )
