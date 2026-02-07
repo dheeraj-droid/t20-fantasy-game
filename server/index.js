@@ -6,7 +6,12 @@ import sql, { initDb } from './db.js';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: [
+        "http://localhost:5173",
+        "https://t20-fantasy-game.vercel.app"
+    ]
+}));
 app.use(express.json());
 
 const PORT = process.env.PORT || 5000;

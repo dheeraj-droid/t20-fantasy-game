@@ -1,4 +1,5 @@
-const API_URL = 'http://localhost:5000/api';
+const API_URL = 'https://t20-fantasy-game.onrender.com/api';
+
 
 export const api = {
     // 1. Sync All Data
