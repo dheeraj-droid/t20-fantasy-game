@@ -4,13 +4,13 @@ import { api } from './api';
 import {
   Trophy, Activity, Edit3, X, Save, RefreshCw, Star, ClipboardList,
   Medal, Calendar, Zap, CheckCircle2, AlertCircle, Clock, Lock, Unlock,
-  Hash, Calculator, Users, ShieldCheck, ListChecks, Settings, Flag, Check, LogOut, KeyRound
+  Hash, Calculator, Users, ShieldCheck, ListChecks, Settings, Flag, Check, LogOut, KeyRound, Eye
 } from 'lucide-react';
 import { Analytics } from "@vercel/analytics/react"
 
 // --- CONSTANTS ---
-const INITIAL_SYSTEM_TIME = new Date("2026-02-21T19:02:00");
-//const INITIAL_SYSTEM_TIME = new Date();
+//const INITIAL_SYSTEM_TIME = new Date("2026-02-21T19:02:00");
+const INITIAL_SYSTEM_TIME = new Date();
 const MATCH_DURATION_HOURS = 4;
 
 // ---------------------------------------------------------
@@ -158,7 +158,6 @@ export default function App() {
   const [matchResults, setMatchResults] = useState({}); // { matchId: { playerName: points } }
   const [teamMatchRewards, setTeamMatchRewards] = useState({}); // { matchId: { teamId: points } }
 
-
   // --- AUTH STATE ---
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLineupLocked, setIsLineupLocked] = useState(false);
@@ -168,6 +167,9 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('leaderboard');
   const [editingTeam, setEditingTeam] = useState(null);
+  const [lineupHistory, setLineupHistory] = useState([]); // Array of { type: 'LOCK'|'UNLOCK', timestamp, lineups?}
+  const [rounds, setRounds] = useState([]); // Array of { id, matchIds, lineups, timestamp }
+  const [matchSubmissionTimes, setMatchSubmissionTimes] = useState({}); // { matchId: ISOString }
   const [resolvingMatch, setResolvingMatch] = useState(null);
   const [manualPoints, setManualPoints] = useState({});
   const [systemTime, setSystemTime] = useState(INITIAL_SYSTEM_TIME);
@@ -179,23 +181,6 @@ export default function App() {
 
 
   const initializeLocalData = () => {
-    /* 
-    // DISABLED: User requested "Cloud Only" - No local data on refresh.
-    // Try loading from localStorage first
-    const savedTeams = localStorage.getItem('fantasyTeams');
-    const savedRegistry = localStorage.getItem('playerRegistry');
-    const savedMatchIds = localStorage.getItem('processedMatchIds');
-    const savedLock = localStorage.getItem('isLineupLocked');
-
-    if (savedTeams && savedRegistry) {
-      setFantasyTeams(JSON.parse(savedTeams));
-      setPlayerRegistry(JSON.parse(savedRegistry));
-      if (savedMatchIds) setProcessedMatchIds(JSON.parse(savedMatchIds));
-      if (savedLock) setIsLineupLocked(JSON.parse(savedLock));
-      return;
-    }
-    */
-
     const initTeams = Object.keys(FANTASY_ROSTERS).map((groupName, i) => ({
       id: `g${i + 1}`,
       name: groupName,
@@ -217,8 +202,6 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
-  // 1. Initialization (With Safety Timeout)
-  // 1. Initialization (With Safety Timeout)
   // 1. Data Sync (Polling)
   useEffect(() => {
     const fetchSync = async () => {
@@ -240,6 +223,9 @@ export default function App() {
             setIsLineupLocked(data.metadata.isLineupLocked || false);
             setMatchResults(data.metadata.matchResults || {});
             setTeamMatchRewards(data.metadata.teamMatchRewards || {});
+            setLineupHistory(data.metadata.lineupHistory || []);
+            setRounds(data.metadata.rounds || []);
+            setMatchSubmissionTimes(data.metadata.matchSubmissionTimes || {});
           }
           setCloudStatus("connected");
           setLastSynced(new Date());
@@ -296,16 +282,94 @@ export default function App() {
 
   const toggleLineupLock = async () => {
     const newState = !isLineupLocked;
+    let newLineupHistory = [...lineupHistory];
+
+    // Archive the event
+    const event = {
+      type: newState ? 'LOCK' : 'UNLOCK',
+      timestamp: new Date().toISOString()
+    };
+
+    if (newState === true) {
+      // LOCKING: Capture snapshot for the upcoming round
+      event.lineups = {};
+      fantasyTeams.forEach(team => {
+        event.lineups[team.id] = {
+          playingXINames: team.playingXINames,
+          captainName: team.captainName,
+          viceCaptainName: team.viceCaptainName
+        };
+      });
+    } else {
+      // UNLOCKING: End of a round -> Archive it as a specific "Round" object
+      // 1. Find the last LOCK event to see when this round started
+      const reversedHistory = [...lineupHistory].reverse();
+      const lastLock = reversedHistory.find(e => e.type === 'LOCK');
+
+      if (lastLock && lastLock.lineups) {
+        const roundStart = new Date(lastLock.timestamp);
+        const roundEnd = new Date();
+
+        // 2. Find matches that STARTED in this window OR were FIRST SCORED in this window
+        const matchesInRound = MATCH_SCHEDULE.filter(m => {
+          const mStart = new Date(m.start);
+          const startedInWindow = mStart >= roundStart && mStart <= roundEnd;
+
+          const firstScoredTime = matchSubmissionTimes[m.id] ? new Date(matchSubmissionTimes[m.id]) : null;
+          const scoredInWindow = firstScoredTime && firstScoredTime >= roundStart && firstScoredTime <= roundEnd;
+
+          return startedInWindow || scoredInWindow;
+        }).map(m => m.id);
+
+        if (matchesInRound.length > 0) {
+          const newRound = {
+            id: `round_${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            matchIds: matchesInRound,
+            lineups: lastLock.lineups // The lineups that were locked for this period
+          };
+
+          const updatedRounds = [...rounds, newRound];
+          setRounds(updatedRounds);
+
+          // Update metadata with new rounds immediately
+          await api.updateMetadata({
+            isLineupLocked: newState,
+            processedMatchIds,
+            matchResults,
+            teamMatchRewards,
+            lineupHistory: [...newLineupHistory, event], // Include the unlock event
+            rounds: updatedRounds,
+            matchSubmissionTimes
+          });
+          setIsLineupLocked(newState);
+          setLineupHistory([...newLineupHistory, event]);
+          return; // Exit early since we did the safe update
+        }
+      }
+    }
+
+    newLineupHistory.push(event);
+
+
     try {
-      await api.updateMetadata({ isLineupLocked: newState, processedMatchIds });
-      setIsLineupLocked(newState); // Optimistic
+      await api.updateMetadata({
+        isLineupLocked: newState,
+        processedMatchIds,
+        matchResults,
+        teamMatchRewards,
+        lineupHistory: newLineupHistory,
+        rounds,
+        matchSubmissionTimes
+      });
+      setIsLineupLocked(newState);
+      setLineupHistory(newLineupHistory);
     } catch (e) { console.error(e); }
   };
 
+
+
   // --- SAFE SYNC ACTIONS ---
-
-
-
 
   const handleSeedDatabase = async () => {
     if (!window.confirm("WARNING: This will RESET the Cloud Database with initial rosters. Are you sure?")) return;
@@ -328,7 +392,10 @@ export default function App() {
         isLineupLocked: false,
         processedMatchIds: [],
         matchResults: {},
-        teamMatchRewards: {}
+        teamMatchRewards: {},
+        lineupHistory: [],
+        rounds: [],
+        matchSubmissionTimes: {}
       };
 
       await api.seed(teams, metadata);
@@ -345,36 +412,105 @@ export default function App() {
     }
   };
 
-  /* REMOVED handleRestoreLocal */
-
   const handleScoreSubmit = async () => {
     if (!resolvingMatch) return;
 
-    // 1. Calculate points earned IN THIS MATCH for all teams
-    const currentMatchRewards = {};
-    fantasyTeams.forEach(team => {
-      let teamMatchScore = 0;
-      team.playingXINames.forEach(playerName => {
-        const pointsInMatch = Number(manualPoints[playerName] || 0);
-        if (pointsInMatch > 0) {
-          let mult = 1;
-          if (playerName === team.captainName) mult = 2;
-          else if (playerName === team.viceCaptainName) mult = 1.5;
-          teamMatchScore += (pointsInMatch * mult);
-        }
-      });
-      currentMatchRewards[team.id] = Math.floor(teamMatchScore);
+    // 1. Merge and find the updated Match Results source of truth
+    const existingMatchPoints = matchResults[resolvingMatch.id] || {};
+    const mergedMatchPoints = { ...existingMatchPoints };
+    Object.keys(manualPoints).forEach(pName => {
+      const val = manualPoints[pName];
+      if (val !== undefined && val !== null && val.toString().trim() !== "") {
+        mergedMatchPoints[pName] = val;
+      }
     });
 
-    // 2. Prepare new results maps
-    const newMatchResults = { ...matchResults, [resolvingMatch.id]: manualPoints };
-    const newTeamRewards = { ...teamMatchRewards, [resolvingMatch.id]: currentMatchRewards };
-    if (!processedMatchIds.includes(resolvingMatch.id)) {
-      setProcessedMatchIds([...processedMatchIds, resolvingMatch.id]);
+    const newMatchResults = { ...matchResults, [resolvingMatch.id]: mergedMatchPoints };
+
+    // Capture Submission Time if it's the first time
+    const newSubmissionTimes = { ...matchSubmissionTimes };
+    if (!newSubmissionTimes[resolvingMatch.id]) {
+      newSubmissionTimes[resolvingMatch.id] = new Date().toISOString();
     }
 
-    // 3. RECALCULATE GLOBAL TOTALS (The Source of Truth)
-    // Team Totals
+    // 2. GLOBAL RECALCULATION: Re-derive EVERYTHING from the logs
+    const newTeamRewards = {}; // matchId -> teamId -> points
+
+    // Sort history once for lookup efficiency (Oldest to Newest)
+    const sortedHistory = [...lineupHistory].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+    // Iterate over every match that has ANY result recorded
+    Object.keys(newMatchResults).forEach(mId => {
+      const mPoints = newMatchResults[mId];
+      const matchData = MATCH_SCHEDULE.find(m => m.id === Number(mId));
+      if (!matchData) return;
+
+      const mStartTime = new Date(matchData.start);
+
+      // Find the historical lineup for this specific match
+      let historicalSnapshot = null;
+      for (const event of sortedHistory) {
+        if (new Date(event.timestamp) > mStartTime) break;
+        if (event.type === 'LOCK') historicalSnapshot = event;
+        else if (event.type === 'UNLOCK') historicalSnapshot = null;
+      }
+
+      const existingMatchReward = teamMatchRewards[mId];
+      newTeamRewards[mId] = {};
+
+      fantasyTeams.forEach(team => {
+        let playingXI, captain, viceCap;
+
+        // NEW LOGIC: Explicit Round Lookup
+        // 1. Is this match part of a completed Round?
+        const explicitRound = rounds.find(r => r.matchIds.includes(Number(mId)));
+
+        if (explicitRound) {
+          const rData = explicitRound.lineups[team.id];
+          if (rData) {
+            playingXI = rData.playingXINames;
+            captain = rData.captainName;
+            viceCap = rData.viceCaptainName;
+          }
+        } else if (historicalSnapshot) {
+          // 2. Fallback to Time-Window Snapshot (if round not yet archived/unlocked)
+          const hData = historicalSnapshot.lineups[team.id];
+          if (hData) {
+            playingXI = hData.playingXINames;
+            captain = hData.captainName;
+            viceCap = hData.viceCaptainName;
+          }
+        }
+
+        // 2. PRESERVATION CASE: No snapshot found (e.g., match before first archive), 
+        // but we have a result. Reuse it UNLESS it's the match we are currently resolving.
+        if (!playingXI && existingMatchReward && existingMatchReward[team.id] !== undefined && mId !== String(resolvingMatch.id)) {
+          newTeamRewards[mId][team.id] = existingMatchReward[team.id];
+          return;
+        }
+
+        // 3. FALLBACK: New match or no snapshot/reward yet. Use current lineup.
+        if (!playingXI) {
+          playingXI = team.playingXINames;
+          captain = team.captainName;
+          viceCap = team.viceCaptainName;
+        }
+
+        let matchScore = 0;
+        playingXI.forEach(pName => {
+          const pPoints = Number(mPoints[pName] || 0);
+          if (pPoints > 0) {
+            let mult = 1;
+            if (pName === captain) mult = 2;
+            else if (pName === viceCap) mult = 1.5;
+            matchScore += (pPoints * mult);
+          }
+        });
+        newTeamRewards[mId][team.id] = Math.floor(matchScore);
+      });
+    });
+
+    // 3. Update Fantasy Teams with Total Accumulation
     const updatedFantasyTeams = fantasyTeams.map(team => {
       let totalPoints = 0;
       Object.keys(newTeamRewards).forEach(mId => {
@@ -383,13 +519,13 @@ export default function App() {
       return { ...team, points: totalPoints };
     });
 
-    // Player Totals (Registry)
+    // 4. Update Player Registry (MVP)
     const newRegistry = {};
     Object.keys(newMatchResults).forEach(mId => {
-      const matchPoints = newMatchResults[mId];
-      Object.keys(matchPoints).forEach(pName => {
+      const mPoints = newMatchResults[mId];
+      Object.keys(mPoints).forEach(pName => {
         if (!newRegistry[pName]) newRegistry[pName] = { points: 0 };
-        newRegistry[pName].points += Number(matchPoints[pName]);
+        newRegistry[pName].points += Number(mPoints[pName]);
       });
     });
 
@@ -404,16 +540,18 @@ export default function App() {
         processedMatchIds: newProcessedIds,
         isLineupLocked,
         matchResults: newMatchResults,
-        teamMatchRewards: newTeamRewards
+        teamMatchRewards: newTeamRewards,
+        lineupHistory,
+        rounds,
+        matchSubmissionTimes: newSubmissionTimes
       });
 
-      // Optimistic Update
       setPlayerRegistry(newRegistry);
       setFantasyTeams(updatedFantasyTeams);
       setProcessedMatchIds(newProcessedIds);
       setMatchResults(newMatchResults);
       setTeamMatchRewards(newTeamRewards);
-
+      setMatchSubmissionTimes(newSubmissionTimes);
     } catch (e) { console.error(e); alert("Failed to save score"); }
 
     setResolvingMatch(null);
@@ -528,10 +666,9 @@ export default function App() {
                         <td className="px-8 py-6 text-center">
                           <button
                             onClick={() => setEditingTeam(JSON.parse(JSON.stringify(team)))}
-                            disabled={!canEdit}
-                            className={`px-6 py-3 rounded-xl transition-all shadow-lg text-white font-black text-[10px] uppercase flex items-center justify-center gap-2 mx-auto w-40 ${canEdit ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'}`}
+                            className={`px-6 py-3 rounded-xl transition-all shadow-lg text-white font-black text-[10px] uppercase flex items-center justify-center gap-2 mx-auto w-40 ${canEdit ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
                           >
-                            {canEdit ? <><ListChecks size={16} /> Edit Lineup</> : <><Lock size={16} /> Locked</>}
+                            {canEdit ? <><ListChecks size={16} /> Edit Lineup</> : <><Eye size={16} /> View Team</>}
                           </button>
                         </td>
                       </tr>
@@ -720,8 +857,14 @@ export default function App() {
             <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
               <div className="p-6 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-slate-900 to-indigo-950">
                 <div>
-                  <h3 className="text-2xl font-black italic uppercase text-white flex gap-3 items-center"><ListChecks size={24} className="text-blue-400" /> Edit Playing 11</h3>
-                  <p className="text-xs text-slate-500 font-bold uppercase mt-1 tracking-widest">{editingTeam.name} - Changes apply to NEXT match</p>
+                  <h3 className="text-2xl font-black italic uppercase text-white flex gap-3 items-center">
+                    {isLineupLocked && !isAdmin ? <Eye size={24} className="text-blue-400" /> : <ListChecks size={24} className="text-blue-400" />}
+                    {isLineupLocked && !isAdmin ? "View Playing 11" : "Edit Playing 11"}
+                  </h3>
+                  <p className="text-xs text-slate-500 font-bold uppercase mt-1 tracking-widest">
+                    {editingTeam.name}
+                    {isLineupLocked && !isAdmin ? " - Read Only Mode" : " - Changes apply to NEXT match"}
+                  </p>
                 </div>
                 <button onClick={() => setEditingTeam(null)} className="text-slate-400 hover:text-white p-2 bg-white/5 rounded-full"><X size={24} /></button>
               </div>
@@ -738,6 +881,7 @@ export default function App() {
                       return (
                         <div key={idx}
                           onClick={() => {
+                            if (isLineupLocked && !isAdmin) return;
                             const current = [...editingTeam.playingXINames];
                             if (isInXI) {
                               const filtered = current.filter(n => n !== p.name);
@@ -764,7 +908,7 @@ export default function App() {
                               <p className="text-[8px] text-slate-400 font-black uppercase">{role}</p>
                             </div>
                           </div>
-                          {isInXI && (
+                          {isInXI && (!isLineupLocked || isAdmin) && (
                             <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                               <button onClick={() => setEditingTeam({ ...editingTeam, captainName: p.name, viceCaptainName: isVC ? "" : editingTeam.viceCaptainName })} className={`w-6 h-6 rounded text-[8px] font-black ${isCap ? 'bg-yellow-500 text-black' : 'bg-black/30 text-slate-500'}`}>C</button>
                               <button onClick={() => setEditingTeam({ ...editingTeam, viceCaptainName: p.name, captainName: isCap ? "" : editingTeam.captainName })} className={`w-6 h-6 rounded text-[8px] font-black ${isVC ? 'bg-indigo-500 text-white' : 'bg-black/30 text-slate-500'}`}>VC</button>
@@ -830,23 +974,25 @@ export default function App() {
                           </div>
                         </div>
 
-                        <button
-                          disabled={!isValid}
-                          onClick={async () => {
-                            // Optimistic
-                            const newTeams = fantasyTeams.map(t => t.id === editingTeam.id ? editingTeam : t);
-                            setFantasyTeams(newTeams);
+                        {(!isLineupLocked || isAdmin) && (
+                          <button
+                            disabled={!isValid}
+                            onClick={async () => {
+                              // Optimistic
+                              const newTeams = fantasyTeams.map(t => t.id === editingTeam.id ? editingTeam : t);
+                              setFantasyTeams(newTeams);
 
-                            try {
-                              await api.updateTeams(newTeams);
-                            } catch (e) { console.error(e); }
+                              try {
+                                await api.updateTeams(newTeams);
+                              } catch (e) { console.error(e); }
 
-                            setEditingTeam(null);
-                          }}
-                          className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest shadow-xl disabled:opacity-20 disabled:cursor-not-allowed transition-all"
-                        >
-                          Save Lineup
-                        </button>
+                              setEditingTeam(null);
+                            }}
+                            className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest shadow-xl disabled:opacity-20 disabled:cursor-not-allowed transition-all"
+                          >
+                            Save Lineup
+                          </button>
+                        )}
                       </>
                     );
                   })()}
