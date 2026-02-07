@@ -513,15 +513,25 @@ export default function App() {
                       <p className="text-[10px] font-mono font-bold text-slate-500">{startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
                     <h3 className="text-xl font-black uppercase italic text-white mb-6">{m.teams}</h3>
-                    {status === 'FINISHED' && !isProcessed ? (
+                    {status === 'FINISHED' ? (
                       isAdmin ? (
-                        <button onClick={() => setResolvingMatch(m)} className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Enter Points</button>
+                        <button
+                          onClick={() => setResolvingMatch(m)}
+                          className={`w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isProcessed
+                            ? 'bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-500/30'
+                            : 'bg-blue-600 hover:bg-blue-500 text-white'
+                            }`}
+                        >
+                          {isProcessed ? "Update Points" : "Enter Points"}
+                        </button>
                       ) : (
-                        <div className="w-full py-3 bg-slate-800 rounded-xl text-[10px] font-black text-center text-slate-500 uppercase tracking-widest border border-white/5 flex items-center justify-center gap-2"><Lock size={12} /> Admin Only</div>
+                        <div className={`w-full py-3 rounded-xl text-[10px] font-black text-center uppercase tracking-widest border border-white/5 flex items-center justify-center gap-2 ${isProcessed ? 'bg-green-500/10 text-green-500' : 'bg-slate-800 text-slate-500'}`}>
+                          {isProcessed ? "Updated" : <><Lock size={12} /> Admin Only</>}
+                        </div>
                       )
                     ) : (
                       <div className="w-full py-3 bg-white/5 rounded-xl text-[10px] font-black text-center text-slate-600 uppercase tracking-widest border border-white/5">
-                        {isProcessed ? "Points Synced" : "Match Locked"}
+                        {status === 'LIVE' ? "Match in Progress" : "Upcoming"}
                       </div>
                     )}
                   </div>
@@ -635,7 +645,8 @@ export default function App() {
                             </div>
                             <input
                               type="number"
-                              className="w-16 bg-black/40 border border-white/10 rounded-lg p-2 text-right text-white font-mono text-sm font-bold focus:border-blue-500 outline-none"
+                              onWheel={(e) => e.target.blur()}
+                              className="w-16 bg-black/40 border border-white/10 rounded-lg p-2 text-right text-white font-mono text-sm font-bold focus:border-blue-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                               placeholder="-"
                               onChange={(e) => setManualPoints({ ...manualPoints, [p.name]: e.target.value })}
                             />
