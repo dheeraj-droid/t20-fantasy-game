@@ -4,7 +4,7 @@ import { api } from './api';
 import {
   Trophy, Activity, Edit3, X, Save, RefreshCw, Star, ClipboardList,
   Medal, Calendar, Zap, CheckCircle2, AlertCircle, Clock, Lock, Unlock,
-  Hash, Calculator, Users, ShieldCheck, ListChecks, Settings, Flag, Check, LogOut, KeyRound, Eye
+  Hash, Calculator, Users, ShieldCheck, ListChecks, Settings, Flag, Check, LogOut, KeyRound, Eye, Search
 } from 'lucide-react';
 import { Analytics } from "@vercel/analytics/react"
 
@@ -21,14 +21,14 @@ const NATIONAL_SQUADS = {
     { name: "Suryakumar Yadav", role: "BAT" }, { name: "Abhishek Sharma", role: "BAT" }, { name: "Tilak Varma", role: "BAT" },
     { name: "Sanju Samson", role: "WK" }, { name: "Shivam Dube", role: "AR" }, { name: "Ishan Kishan", role: "WK" },
     { name: "Hardik Pandya", role: "AR" }, { name: "Arshdeep Singh", role: "BOWL" }, { name: "Jasprit Bumrah", role: "BOWL" },
-    { name: "Harshit Rana", role: "BOWL" }, { name: "Varun Chakaravarthy", role: "BOWL" }, { name: "Kuldeep Yadav", role: "BOWL" },
+    { name: "Mohd Siraj", role: "BOWL" }, { name: "Varun Chakaravarthy", role: "BOWL" }, { name: "Kuldeep Yadav", role: "BOWL" },
     { name: "Axar Patel", role: "AR" }, { name: "Washington Sundar", role: "AR" }, { name: "Rinku Singh", role: "BAT" }
   ],
   "PAK": [
     { name: "Salman Agha", role: "AR" }, { name: "Abrar Ahmed", role: "BOWL" }, { name: "Babar Azam", role: "BAT" },
     { name: "Faheem Ashraf", role: "AR" }, { name: "Fakhar Zaman", role: "BAT" }, { name: "Khawaja Nafay", role: "BAT" },
-    { name: "Mohammad Nawaz", role: "AR" }, { name: "Mohammad Salman Mirza", role: "BOWL" }, { name: "Naseem Shah", role: "BOWL" },
-    { name: "Sahibzada Farhan", role: "WK" }, { name: "Saim Ayub", role: "BAT" }, { name: "Shaheen Afridi", role: "BOWL" },
+    { name: "Mohammad Nawaz", role: "AR" }, { name: "Salman Mirza", role: "BOWL" }, { name: "Naseem Shah", role: "BOWL" },
+    { name: "Sahibzada Farhan", role: "WK" }, { name: "Saim Ayub", role: "AR" }, { name: "Shaheen Afridi", role: "BOWL" },
     { name: "Shadab Khan", role: "AR" }, { name: "Usman Khan", role: "WK" }, { name: "Usman Tariq", role: "BOWL" }
   ],
   "AUS": [
@@ -36,49 +36,49 @@ const NATIONAL_SQUADS = {
     { name: "Tim David", role: "BAT" }, { name: "Ben Dwarshuis", role: "BOWL" }, { name: "Cameron Green", role: "AR" },
     { name: "Nathan Ellis", role: "BOWL" }, { name: "Josh Hazlewood", role: "BOWL" }, { name: "Travis Head", role: "BAT" },
     { name: "Josh Inglis", role: "WK" }, { name: "Matthew Kuhnemann", role: "BOWL" }, { name: "Glenn Maxwell", role: "AR" },
-    { name: "Matthew Renshaw", role: "BAT" }, { name: "Marcus Stoinis", role: "AR" }, { name: "Adam Zampa", role: "BOWL" }
+    { name: "Matt Renshaw", role: "BAT" }, { name: "Marcus Stoinis", role: "AR" }, { name: "Adam Zampa", role: "BOWL" }
   ],
   "SL": [
     { name: "Dasun Shanaka", role: "AR" }, { name: "Pathum Nissanka", role: "BAT" }, { name: "Kamil Mishara", role: "BAT" },
-    { name: "Kusal Mendis", role: "WK" }, { name: "Kamindu Mendis", role: "AR" }, { name: "Kusal Janith Perera", role: "BAT" },
-    { name: "Charith Asalanka", role: "BAT" }, { name: "Janith Liyanage", role: "AR" }, { name: "Pavan Rathnayake", role: "BAT" },
-    { name: "Wanindu Hasaranga", role: "AR" }, { name: "Dunith Wellalage", role: "AR" }, { name: "Maheesh Theekshana", role: "BOWL" },
+    { name: "Kusal Mendis", role: "WK" }, { name: "Kamindu Mendis", role: "AR" }, { name: "Kusal Janith Perera", role: "WK" },
+    { name: "Charith Asalanka", role: "BAT" }, { name: "Janith Liyanage", role: "BAT" }, { name: "Pavan Rathnayake", role: "BAT" },
+    { name: "Wanindu Hasaranga", role: "AR" }, { name: "Dunith Wellalage", role: "BOWL" }, { name: "Maheesh Theekshana", role: "BOWL" },
     { name: "Dushmantha Chameera", role: "BOWL" }, { name: "Matheesha Pathirana", role: "BOWL" }, { name: "Eshan Malinga", role: "BOWL" }
   ],
   "ENG": [
-    { name: "Harry Brook", role: "BAT" }, { name: "Rehan Ahmed", role: "BOWL" }, { name: "Jofra Archer", role: "BOWL" },
-    { name: "Tom Banton", role: "WK" }, { name: "Jacob Bethell", role: "BAT" }, { name: "Jos Buttler", role: "WK" },
+    { name: "Harry Brook", role: "BAT" }, { name: "Rehan Ahmed", role: "AR" }, { name: "Jofra Archer", role: "BOWL" },
+    { name: "Tom Banton", role: "WK" }, { name: "Jacob Bethell", role: "AR" }, { name: "Jos Buttler", role: "WK" },
     { name: "Sam Curran", role: "AR" }, { name: "Liam Dawson", role: "AR" }, { name: "Ben Duckett", role: "BAT" },
-    { name: "Will Jacks", role: "BAT" }, { name: "Jamie Overton", role: "AR" }, { name: "Adil Rashid", role: "BOWL" },
+    { name: "Will Jacks", role: "AR" }, { name: "Jamie Overton", role: "AR" }, { name: "Adil Rashid", role: "BOWL" },
     { name: "Philip Salt", role: "WK" }, { name: "Josh Tongue", role: "BOWL" }, { name: "Luke Wood", role: "BOWL" }
   ],
   "WI": [
-    { name: "Shai Hope", role: "WK" }, { name: "Shimron Hetmyer", role: "BAT" }, { name: "Johnson Charles", role: "BAT" },
+    { name: "Shai Hope", role: "WK" }, { name: "Shimron Hetmyer", role: "BAT" }, { name: "Johnson Charles", role: "WK" },
     { name: "Roston Chase", role: "AR" }, { name: "Matthew Forde", role: "BOWL" }, { name: "Jason Holder", role: "AR" },
     { name: "Akeal Hosein", role: "BOWL" }, { name: "Shamar Joseph", role: "BOWL" }, { name: "Brandon King", role: "BAT" },
-    { name: "Gudakesh Motie", role: "BOWL" }, { name: "Rovman Powell", role: "BAT" }, { name: "Sherfane Rutherford", role: "BAT" },
-    { name: "Quentin Sampson", role: "BAT" }, { name: "Jayden Seales", role: "BOWL" }, { name: "Romario Shepherd", role: "AR" }
+    { name: "Gudakesh Motie", role: "AR" }, { name: "Rovman Powell", role: "BAT" }, { name: "Sherfane Rutherford", role: "BAT" },
+    { name: "Quentin Sampson", role: "AR" }, { name: "Jayden Seales", role: "BOWL" }, { name: "Romario Shepherd", role: "AR" }
   ],
   "SA": [
-    { name: "Aiden Markram", role: "BAT" }, { name: "Corbin Bosch", role: "AR" }, { name: "Dewald Brevis", role: "BAT" },
+    { name: "Aiden Markram", role: "AR" }, { name: "Corbin Bosch", role: "AR" }, { name: "Dewald Brevis", role: "BAT" },
     { name: "Quinton de Kock", role: "WK" }, { name: "Marco Jansen", role: "AR" }, { name: "George Linde", role: "AR" },
     { name: "Keshav Maharaj", role: "BOWL" }, { name: "Kwena Maphaka", role: "BOWL" }, { name: "David Miller", role: "BAT" },
     { name: "Lungi Ngidi", role: "BOWL" }, { name: "Anrich Nortje", role: "BOWL" }, { name: "Kagiso Rabada", role: "BOWL" },
-    { name: "Ryan Rickelton", role: "WK" }, { name: "Jason Smith", role: "AR" }, { name: "Tristan Stubbs", role: "BAT" }
+    { name: "Ryan Rickelton", role: "WK" }, { name: "Jason Smith", role: "BAT" }, { name: "Tristan Stubbs", role: "WK" }
   ],
   "NZ": [
     { name: "Mitchell Santner", role: "AR" }, { name: "Finn Allen", role: "BAT" }, { name: "Michael Bracewell", role: "AR" },
     { name: "Mark Chapman", role: "BAT" }, { name: "Devon Conway", role: "WK" }, { name: "Jacob Duffy", role: "BOWL" },
     { name: "Lockie Ferguson", role: "BOWL" }, { name: "Matt Henry", role: "BOWL" }, { name: "Kyle Jamieson", role: "BOWL" },
-    { name: "Daryl Mitchell", role: "AR" }, { name: "James Neesham", role: "AR" }, { name: "Glenn Phillips", role: "BAT" },
+    { name: "Daryl Mitchell", role: "AR" }, { name: "James Neesham", role: "AR" }, { name: "Glenn Phillips", role: "AR" },
     { name: "Rachin Ravindra", role: "AR" }, { name: "Tim Seifert", role: "WK" }, { name: "Ish Sodhi", role: "BOWL" }
   ],
   "AFG": [
     { name: "Rashid Khan", role: "BOWL" }, { name: "Noor Ahmad", role: "BOWL" }, { name: "Abdullah Ahmadzai", role: "BOWL" },
     { name: "Sediqullah Atal", role: "BAT" }, { name: "Fazalhaq Farooqi", role: "BOWL" }, { name: "Rahmanullah Gurbaz", role: "WK" },
-    { name: "Mohammad Ishaq Rahimi", role: "WK" }, { name: "Shahidullah Kamal", role: "BAT" }, { name: "Mohammad Nabi", role: "AR" },
+    { name: "Mohammad Ishaq", role: "WK" }, { name: "Shahidullah Kamal", role: "AR" }, { name: "Mohammad Nabi", role: "AR" },
     { name: "Gulbadin Naib", role: "AR" }, { name: "Azmatullah Omarzai", role: "AR" }, { name: "Mujeeb Ur Rahman", role: "BOWL" },
-    { name: "Darwish Rasooli", role: "BAT" }, { name: "Ibrahim Zadran", role: "BAT" }, { name: "Zia Ur Rahman Sharifi", role: "BOWL" }
+    { name: "Darwish Rasooli", role: "BAT" }, { name: "Ibrahim Zadran", role: "BAT" }, { name: "Naveen Ul Haq", role: "BOWL" }
   ],
   "NED": [{ name: "Scott Edwards", role: "WK" }, { name: "Bas de Leede", role: "AR" }, { name: "Max O'Dowd", role: "BAT" }, { name: "Logan van Beek", role: "BOWL" }],
   "SCO": [{ name: "Richie Berrington", role: "BAT" }, { name: "George Munsey", role: "BAT" }, { name: "Mark Watt", role: "BOWL" }],
@@ -167,6 +167,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('leaderboard');
   const [editingTeam, setEditingTeam] = useState(null);
+  const [mvpSearch, setMvpSearch] = useState("");
   const [lineupHistory, setLineupHistory] = useState([]); // Array of { type: 'LOCK'|'UNLOCK', timestamp, lineups?}
   const [rounds, setRounds] = useState([]); // Array of { id, matchIds, lineups, timestamp }
   const [matchSubmissionTimes, setMatchSubmissionTimes] = useState({}); // { matchId: ISOString }
@@ -264,8 +265,9 @@ export default function App() {
         role: getRole(name)
       }))
       .filter(p => p.points > 0)
+      .filter(p => p.name.toLowerCase().includes(mvpSearch.toLowerCase()))
       .sort((a, b) => b.points - a.points);
-  }, [playerRegistry]);
+  }, [playerRegistry, mvpSearch]);
 
   // --- ACTIONS ---
 
@@ -652,6 +654,7 @@ export default function App() {
                   {sortedTeams.map((team, index) => {
                     // Logic: Users can only edit if UNLOCKED. Admins can ALWAYS edit.
                     const canEdit = !isLineupLocked || isAdmin;
+
                     return (
                       <tr key={team.id} className="hover:bg-white/[0.02] transition-colors group">
                         <td className="px-8 py-6 font-black text-lg">#{index + 1}</td>
@@ -732,9 +735,21 @@ export default function App() {
         {
           activeTab === 'mvp' && (
             <div className="bg-slate-900/40 rounded-[2.5rem] border border-white/5 overflow-hidden shadow-2xl backdrop-blur-md">
-              <div className="p-8 border-b border-white/5 bg-white/5 flex justify-between items-center">
-                <h2 className="text-2xl font-black flex items-center gap-3 italic uppercase"><Medal className="text-orange-500" size={28} /> MVP Standings</h2>
-                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Global Player Rankings</div>
+              <div className="p-8 border-b border-white/5 bg-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="flex flex-col">
+                  <h2 className="text-2xl font-black flex items-center gap-3 italic uppercase"><Medal className="text-orange-500" size={28} /> MVP Standings</h2>
+                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Global Player Rankings</div>
+                </div>
+                <div className="relative w-full md:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                  <input
+                    type="text"
+                    placeholder="Search Player..."
+                    value={mvpSearch}
+                    onChange={(e) => setMvpSearch(e.target.value)}
+                    className="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm font-bold text-white placeholder-slate-600 focus:border-blue-500 outline-none uppercase tracking-wider"
+                  />
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
@@ -867,10 +882,24 @@ export default function App() {
                     {isLineupLocked && !isAdmin ? <Eye size={24} className="text-blue-400" /> : <ListChecks size={24} className="text-blue-400" />}
                     {isLineupLocked && !isAdmin ? "View Playing 11" : "Edit Playing 11"}
                   </h3>
-                  <p className="text-xs text-slate-500 font-bold uppercase mt-1 tracking-widest">
-                    {editingTeam.name}
-                    {isLineupLocked && !isAdmin ? " - Read Only Mode" : " - Changes apply to NEXT match"}
-                  </p>
+                  <div className="flex items-center gap-4 mt-1">
+                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
+                      {editingTeam.name}
+                      {isLineupLocked && !isAdmin ? " - Read Only Mode" : " - Changes apply to NEXT match"}
+                    </p>
+                    <div className="bg-blue-500/20 px-3 py-1 rounded-full border border-blue-500/30">
+                      <p className="text-[10px] font-black uppercase text-blue-300 tracking-wider">
+                        Squad Points: <span className="text-white text-sm">
+                          {editingTeam.playingXINames.reduce((sum, n) => {
+                            let pts = playerRegistry[n]?.points || 0;
+                            if (n === editingTeam.captainName) pts *= 2;
+                            else if (n === editingTeam.viceCaptainName) pts *= 1.5;
+                            return sum + pts;
+                          }, 0)}
+                        </span>
+                      </p>
+                    </div>
+                  </div>
                 </div>
                 <button onClick={() => setEditingTeam(null)} className="text-slate-400 hover:text-white p-2 bg-white/5 rounded-full"><X size={24} /></button>
               </div>
@@ -883,6 +912,12 @@ export default function App() {
                       const role = getRole(p.name);
                       const isCap = editingTeam.captainName === p.name;
                       const isVC = editingTeam.viceCaptainName === p.name;
+
+                      const playerTeam = Object.keys(NATIONAL_SQUADS).find(t =>
+                        NATIONAL_SQUADS[t].some(pl => pl.name === p.name)
+                      ) || "UNK";
+
+                      const playerPoints = playerRegistry[p.name]?.points || 0;
 
                       return (
                         <div key={idx}
@@ -910,8 +945,20 @@ export default function App() {
                               {isInXI && <Check size={12} className="text-white" />}
                             </div>
                             <div>
-                              <p className="font-bold text-white text-sm uppercase">{p.name}</p>
-                              <p className="text-[8px] text-slate-400 font-black uppercase">{role}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-bold text-white text-sm uppercase">{p.name}</p>
+                                {isCap && <span className="bg-yellow-500 text-black text-[8px] font-black px-1.5 rounded">C (2x)</span>}
+                                {isVC && <span className="bg-indigo-500 text-white text-[8px] font-black px-1.5 rounded">VC (1.5x)</span>}
+                              </div>
+                              <div className="flex items-center gap-2 text-[8px] text-slate-400 font-black uppercase">
+                                <span>{role}</span>
+                                <span className="text-slate-600">•</span>
+                                <span className="text-white">{playerTeam}</span>
+                                <span className="text-slate-600">•</span>
+                                <span className="text-blue-400">
+                                  {isCap ? playerPoints * 2 : (isVC ? playerPoints * 1.5 : playerPoints)} pts
+                                </span>
+                              </div>
                             </div>
                           </div>
                           {isInXI && (!isLineupLocked || isAdmin) && (
@@ -928,8 +975,10 @@ export default function App() {
 
                 <div className="w-full md:w-1/3 bg-black/40 border-l border-white/5 p-8 flex flex-col gap-6">
                   {(() => {
-                    const { isValid, errors, counts } = (() => {
+                    const { isValid, errors, counts, totalCounts } = (() => {
                       const xi = editingTeam.playingXINames;
+
+                      // Calculate counts for selected Playing XI
                       const roles = xi.map(n => getRole(n));
                       const c = {
                         WK: roles.filter(r => r === 'WK').length,
@@ -937,6 +986,14 @@ export default function App() {
                         BAT: roles.filter(r => r === 'BAT').length,
                         BOWL: roles.filter(r => r === 'BOWL').length,
                       };
+
+                      // Calculate totals available in the squad
+                      const totalC = { WK: 0, AR: 0, BAT: 0, BOWL: 0 };
+                      editingTeam.players.forEach(p => {
+                        const r = getRole(p.name);
+                        if (totalC[r] !== undefined) totalC[r]++;
+                      });
+
                       const errs = [];
                       if (xi.length !== 11) errs.push(`Select 11 (${xi.length}/11)`);
                       if (c.WK < 1) errs.push("Min 1 WK");
@@ -945,7 +1002,7 @@ export default function App() {
                       if (c.BOWL < 2) errs.push("Min 2 BOWL");
                       if (!editingTeam.captainName) errs.push("Select Captain");
                       if (!editingTeam.viceCaptainName) errs.push("Select VC");
-                      return { isValid: errs.length === 0, errors: errs, counts: c };
+                      return { isValid: errs.length === 0, errors: errs, counts: c, totalCounts: totalC };
                     })();
 
                     return (
@@ -956,6 +1013,7 @@ export default function App() {
                             {['WK', 'BAT', 'AR', 'BOWL'].map(r => {
                               const min = (r === 'WK' || r === 'AR') ? 1 : 2;
                               const val = counts[r];
+                              const total = totalCounts[r];
                               const ok = val >= min;
                               return (
                                 <div key={r} className={`p-3 rounded-xl border ${ok ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
@@ -963,7 +1021,7 @@ export default function App() {
                                     <span className="text-[9px] font-black uppercase text-slate-400">{r}</span>
                                     {ok ? <Check size={12} className="text-green-400" /> : <AlertCircle size={12} className="text-red-400" />}
                                   </div>
-                                  <span className={`text-xl font-mono font-bold ${ok ? 'text-green-400' : 'text-red-400'}`}>{val}</span>
+                                  <span className={`text-xl font-mono font-bold ${ok ? 'text-green-400' : 'text-red-400'}`}>{val}<span className="text-xs text-slate-500">/{total}</span></span>
                                 </div>
                               )
                             })}
