@@ -1,5 +1,6 @@
-const API_URL = 'https://t20-fantasy-game.onrender.com/api';
-//const API_URL = 'http://localhost:5000/api';
+// 1. If VITE_API_URL is set (from .env), use it.
+// 2. Otherwise fall back to the hosted URL (for production).
+const API_URL = import.meta.env.VITE_API_URL || 'https://t20-fantasy-game.onrender.com/api';
 
 export const api = {
     // 1. Sync All Data

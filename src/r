@@ -1,9 +1,0 @@
-const LOCAL_CONFIG =  {
-  apiKey: "AIzaSyCHxfdfQArKPjr7WW0B8bnv0zW8aAKU27w",
-  authDomain: "rrrr-a9f95.firebaseapp.com",
-  projectId: "rrrr-a9f95",
-  storageBucket: "rrrr-a9f95.firebasestorage.app",
-  messagingSenderId: "1061845664907",
-  appId: "1:1061845664907:web:a035a069a98b783743808e",
-  measurementId: "G-FWNSCFY023"
-};
