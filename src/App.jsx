@@ -4,7 +4,7 @@ import { api } from './api';
 import {
   Trophy, Activity, Edit3, X, Save, RefreshCw, Star, ClipboardList,
   Medal, Calendar, Zap, CheckCircle2, AlertCircle, Clock, Lock, Unlock,
-  Hash, Calculator, Users, ShieldCheck, ListChecks, Settings, Flag, Check, LogOut, KeyRound, Eye, Search
+  Hash, Calculator, Users, ShieldCheck, ListChecks, Settings, Flag, Check, LogOut, KeyRound, Eye, Search, DatabaseBackup
 } from 'lucide-react';
 import { Analytics } from "@vercel/analytics/react"
 
@@ -12,6 +12,7 @@ import { Analytics } from "@vercel/analytics/react"
 //const INITIAL_SYSTEM_TIME = new Date("2026-02-21T19:02:00");
 const INITIAL_SYSTEM_TIME = new Date();
 const MATCH_DURATION_HOURS = 4;
+const LOCAL_STORAGE_KEY_ROSTER = 'fantasy_roster_data';
 
 // ---------------------------------------------------------
 // DATABASE 1: NATIONAL SQUADS (Admin Scoring)
@@ -80,9 +81,7 @@ const NATIONAL_SQUADS = {
     { name: "Gulbadin Naib", role: "AR" }, { name: "Azmatullah Omarzai", role: "AR" }, { name: "Mujeeb Ur Rahman", role: "BOWL" },
     { name: "Darwish Rasooli", role: "BAT" }, { name: "Ibrahim Zadran", role: "BAT" }, { name: "Naveen Ul Haq", role: "BOWL" }
   ],
-  "NED": [{ name: "Scott Edwards", role: "WK" }, { name: "Bas de Leede", role: "AR" }, { name: "Max O'Dowd", role: "BAT" }, { name: "Logan van Beek", role: "BOWL" }],
-  "SCO": [{ name: "Richie Berrington", role: "BAT" }, { name: "George Munsey", role: "BAT" }, { name: "Mark Watt", role: "BOWL" }],
-  "USA": [{ name: "Monank Patel", role: "WK" }, { name: "Aaron Jones", role: "BAT" }, { name: "Corey Anderson", role: "AR" }, { name: "Ali Khan", role: "BOWL" }]
+
 };
 
 // ---------------------------------------------------------
@@ -253,21 +252,44 @@ export default function App() {
     }
   }, [resolvingMatch]);
 
+  // --- AUTO-SAVE LOCAL BACKUP ---
+  useEffect(() => {
+    if (fantasyTeams.length > 0) {
+      localStorage.setItem(LOCAL_STORAGE_KEY_ROSTER, JSON.stringify(fantasyTeams));
+    }
+  }, [fantasyTeams]);
+
 
   // --- MEMOIZED DATA ---
   const sortedTeams = useMemo(() => [...fantasyTeams].sort((a, b) => b.points - a.points), [fantasyTeams]);
 
   const mvpList = useMemo(() => {
-    return Object.entries(playerRegistry)
-      .map(([name, data]) => ({
-        name,
-        points: data.points || 0,
-        role: getRole(name)
-      }))
-      .filter(p => p.points > 0)
+    // 1. Get all players from National Squads to ensure everyone is listed
+    const allPlayers = Object.values(NATIONAL_SQUADS).flat();
+
+    // 2. Merge with registry data (points)
+    return allPlayers.map(p => {
+      const regData = playerRegistry[p.name] || { points: 0 };
+
+      const country = Object.keys(NATIONAL_SQUADS).find(c =>
+        NATIONAL_SQUADS[c].some(np => np.name === p.name)
+      ) || "UNK";
+
+      const group = fantasyTeams.find(t =>
+        t.players.some(fp => fp.name === p.name)
+      )?.name || "-";
+
+      return {
+        name: p.name,
+        points: regData.points,
+        role: p.role,
+        country,
+        group
+      };
+    })
       .filter(p => p.name.toLowerCase().includes(mvpSearch.toLowerCase()))
       .sort((a, b) => b.points - a.points);
-  }, [playerRegistry, mvpSearch]);
+  }, [playerRegistry, mvpSearch, fantasyTeams]);
 
   // --- ACTIONS ---
 
@@ -501,14 +523,14 @@ export default function App() {
         let matchScore = 0;
         playingXI.forEach(pName => {
           const pPoints = Number(mPoints[pName] || 0);
-          if (pPoints > 0) {
+          if (pPoints !== 0) {
             let mult = 1;
             if (pName === captain) mult = 2;
             else if (pName === viceCap) mult = 1.5;
             matchScore += (pPoints * mult);
           }
         });
-        newTeamRewards[mId][team.id] = Math.floor(matchScore);
+        newTeamRewards[mId][team.id] = matchScore;
       });
     });
 
@@ -562,76 +584,76 @@ export default function App() {
 
 
   if (loading) return (
-    <div className="min-h-screen bg-[#0b0f1a] flex flex-col items-center justify-center text-white">
-      <RefreshCw className="animate-spin text-blue-500 mb-4" size={48} />
-      <p className="font-black uppercase tracking-widest italic animate-pulse">Connecting to League...</p>
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/40 via-slate-950 to-slate-950" />
+      <RefreshCw className="animate-spin text-indigo-400 mb-6 relative z-10" size={64} />
+      <p className="font-bold text-sm tracking-[0.3em] uppercase text-indigo-300 animate-pulse relative z-10">Syncing Tournament Data...</p>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#0b0f1a] text-slate-200 font-sans p-4 md:p-8">
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans p-4 md:p-8 relative selection:bg-indigo-500/30">
+
+      {/* Background Ambience */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-purple-900/20 blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-900/20 blur-[120px]" />
+      </div>
 
       {/* GLOBAL STATUS BAR */}
-      <div className={`fixed top-0 left-0 right-0 h-1.5 z-50 ${isLineupLocked ? 'bg-red-500' : 'bg-green-500'}`} />
+      <div className={`fixed top-0 left-0 right-0 h-1 z-50 transition-colors duration-500 ${isLineupLocked ? 'bg-rose-500 shadow-[0_0_20px_rgba(244,63,94,0.5)]' : 'bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.5)]'}`} />
 
-      <header className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center mb-10 gap-6 relative">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-4xl md:text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-500 to-purple-600 italic tracking-tighter uppercase leading-none">Pro Fantasy</h1>
-            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-2 border ${isLineupLocked ? 'bg-red-500/10 text-red-500 border-red-500/20' : 'bg-green-500/10 text-green-500 border-green-500/20'}`}>
+      <header className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center mb-12 gap-8 relative z-10">
+        <div className="text-center md:text-left">
+          <div className="flex flex-col gap-2">
+            <h1 className="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 italic tracking-tighter uppercase leading-[0.9] drop-shadow-2xl">
+              T20 WC <span className="text-white drop-shadow-none">2026</span>
+            </h1>
+            <p className="text-xs font-bold text-slate-500 tracking-[0.4em] uppercase pl-1">Official Fantasy League</p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 mt-6 justify-center md:justify-start">
+            <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-2 border backdrop-blur-md transition-all ${isLineupLocked ? 'bg-rose-500/10 text-rose-400 border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.15)]' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]'}`}>
               {isLineupLocked ? <Lock size={12} /> : <Unlock size={12} />}
               {isLineupLocked ? "Lineups Locked" : "Market Open"}
             </div>
-            {/* MODE INDICATOR */}
-            <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-2 border ${cloudStatus === 'connected' ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
+
+            <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase flex items-center gap-2 border backdrop-blur-md transition-all ${cloudStatus === 'connected' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-orange-500/10 text-orange-400 border-orange-500/20'}`}>
               <Activity size={12} />
-              {cloudStatus === 'connected' ? "Data Sync Active" : "Connecting..."}
-              {lastSynced && <span className="text-[8px] opacity-60 ml-1">{lastSynced.toLocaleTimeString()}</span>}
+              {cloudStatus === 'connected' ? "Live Sync" : "Reconnecting..."}
+              {lastSynced && <span className="opacity-50 ml-1 font-mono">| {lastSynced.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
             </div>
-          </div>
-
-
-
-
-
-          <div className="flex bg-slate-900/80 p-1 rounded-xl border border-white/5 mt-4 w-fit">
-            {['leaderboard', 'matches', 'mvp'].map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} className={`px-6 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${activeTab === tab ? 'bg-slate-800 text-blue-400 shadow-lg' : 'text-slate-400 hover:text-white'}`}>{tab}</button>
-            ))}
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-4">
-          {isAdmin ? (
-            <div className="flex items-center gap-4">
-              <div className="bg-purple-900/20 border border-purple-500/20 px-4 py-2 rounded-2xl flex items-center gap-3">
-                <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest flex gap-2 items-center"><ShieldCheck size={14} /> Admin Mode Active</span>
-                <div className="w-px h-4 bg-purple-500/20"></div>
-                <button
-                  onClick={toggleLineupLock}
-                  className={`text-[10px] font-black uppercase flex items-center gap-2 hover:text-white transition-all ${isLineupLocked ? 'text-green-400' : 'text-red-400'}`}
-                >
-                  {isLineupLocked ? "Unlock Market" : "Lock Market"}
-                </button>
-                <div className="w-px h-4 bg-purple-500/20"></div>
-                <button
-                  onClick={handleSeedDatabase}
-                  className="text-[10px] font-black uppercase flex items-center gap-2 text-blue-400 hover:text-white transition-all"
-                >
-                  <RefreshCw size={12} /> Seed DB
-                </button>
-              </div>
-              <button onClick={() => setIsAdmin(false)} className="p-3 bg-slate-800 hover:bg-red-600 rounded-xl text-slate-400 hover:text-white transition-all"><LogOut size={16} /></button>
-            </div>
-          ) : (
+        <nav className="flex bg-white/5 p-1.5 rounded-2xl border border-white/5 backdrop-blur-md shadow-2xl">
+          {['leaderboard', 'matches', 'mvp'].map(tab => (
             <button
-              onClick={() => setShowAdminLogin(true)}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-all text-[10px] font-black uppercase"
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all duration-300 ${activeTab === tab ? 'bg-gradient-to-br from-indigo-600 to-blue-600 text-white shadow-lg scale-105' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}
             >
-              <Settings size={14} /> Admin Access
+              {tab}
             </button>
-          )}
-        </div>
+          ))}
+        </nav>
+
+        {isAdmin && (
+          <div className="flex items-center gap-4">
+            <div className="bg-purple-900/20 border border-purple-500/20 px-4 py-2 rounded-2xl flex items-center gap-3 backdrop-blur-md">
+              <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest flex gap-2 items-center"><ShieldCheck size={14} /> Admin Mode</span>
+              <div className="w-px h-4 bg-purple-500/20"></div>
+              <button onClick={toggleLineupLock} className={`text-[10px] font-black uppercase flex items-center gap-2 hover:text-white transition-all ${isLineupLocked ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {isLineupLocked ? "Unlock" : "Lock"}
+              </button>
+              <div className="w-px h-4 bg-purple-500/20"></div>
+              <button onClick={handleSeedDatabase} className="text-[10px] font-black uppercase flex items-center gap-2 text-indigo-400 hover:text-white transition-all">
+                <RefreshCw size={12} /> Seed
+              </button>
+            </div>
+            <button onClick={() => setIsAdmin(false)} className="p-3 bg-slate-800/80 hover:bg-rose-600/80 rounded-xl text-slate-400 hover:text-white transition-all backdrop-blur-md border border-white/5"><LogOut size={16} /></button>
+          </div>
+        )}
       </header >
 
       {/* --- MAIN CONTENT --- */}
@@ -694,34 +716,46 @@ export default function App() {
                 let status = systemTime > endTime ? "FINISHED" : systemTime >= startTime ? "LIVE" : "UPCOMING";
 
                 return (
-                  <div key={m.id} className={`p-6 rounded-[2rem] border transition-all ${isProcessed ? 'bg-green-500/5 border-green-500/20 opacity-60' : 'bg-slate-900/40 border-white/5 shadow-xl'}`}>
-                    <div className="flex justify-between mb-4">
-                      <span className={`text-[10px] font-black px-3 py-1 rounded-full ${status === 'LIVE' ? 'bg-red-500/20 text-red-400 animate-pulse' : 'bg-white/5 text-slate-500'}`}>{status}</span>
-                      <p className="text-[10px] font-mono font-bold text-slate-500">{startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                  <div key={m.id} className={`p-6 rounded-[2rem] border transition-all hover:scale-[1.02] duration-300 group ${isProcessed
+                    ? 'bg-emerald-500/5 border-emerald-500/20 opacity-75'
+                    : 'bg-slate-900/40 border-white/5 shadow-2xl backdrop-blur-sm'
+                    } ${status === 'LIVE' ? 'shadow-[0_0_30px_rgba(244,63,94,0.3)] border-rose-500/30' : ''}`}>
+
+                    <div className="flex justify-between mb-6 items-start">
+                      <span className={`text-[10px] font-black px-3 py-1 rounded-full border ${status === 'LIVE' ? 'bg-rose-500/20 text-rose-400 border-rose-500/30 animate-pulse shadow-[0_0_10px_rgba(244,63,94,0.4)]'
+                        : status === 'FINISHED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                          : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                        }`}>{status}</span>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{startTime.toLocaleDateString([], { month: 'short', day: 'numeric' })}</p>
+                        <p className="text-sm font-black text-white">{startTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
                     </div>
-                    <h3 className="text-xl font-black uppercase italic text-white mb-6">{m.teams}</h3>
+
+                    <h3 className="text-2xl font-black uppercase italic text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-8 leading-[0.9]">{m.teams}</h3>
+
                     {status === 'FINISHED' ? (
                       isAdmin ? (
                         <button
                           onClick={() => setResolvingMatch(m)}
-                          className={`w-full py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${isProcessed
-                            ? 'bg-green-600/20 text-green-400 hover:bg-green-600/30 border border-green-500/30'
-                            : 'bg-blue-600 hover:bg-blue-500 text-white'
+                          className={`w-full py-4 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-lg ${isProcessed
+                            ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30'
+                            : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-500/20'
                             }`}
                         >
-                          {isProcessed ? "Update Points" : "Enter Points"}
+                          {isProcessed ? "Update Score" : "Input Score"}
                         </button>
                       ) : (
                         <button
                           onClick={() => setResolvingMatch(m)}
-                          className={`w-full py-3 rounded-xl text-[10px] font-black text-center uppercase tracking-widest border border-white/5 flex items-center justify-center gap-2 transition-all ${isProcessed ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20 hover:text-green-400' : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'}`}
+                          className={`w-full py-4 rounded-xl text-[10px] font-black text-center uppercase tracking-[0.2em] border flex items-center justify-center gap-2 transition-all ${isProcessed ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' : 'bg-slate-800/50 border-white/5 text-slate-500 cursor-not-allowed'}`}
                         >
-                          {isProcessed ? "View Points" : <><Lock size={12} /> Admin Only</>}
+                          {isProcessed ? "View Scorecard" : <><Lock size={12} /> Pending</>}
                         </button>
                       )
                     ) : (
-                      <div className="w-full py-3 bg-white/5 rounded-xl text-[10px] font-black text-center text-slate-600 uppercase tracking-widest border border-white/5">
-                        {status === 'LIVE' ? "Match in Progress" : "Upcoming"}
+                      <div className="w-full py-4 bg-white/5 rounded-xl text-[10px] font-black text-center text-slate-500 uppercase tracking-[0.2em] border border-white/5 group-hover:bg-white/10 transition-colors">
+                        {status === 'LIVE' ? <span className="text-rose-400 animate-pulse">Match Live</span> : "Scheduled"}
                       </div>
                     )}
                   </div>
@@ -758,23 +792,38 @@ export default function App() {
                       <th className="px-8 py-5">Rank</th>
                       <th className="px-8 py-5">Player</th>
                       <th className="px-8 py-5 text-center">Role</th>
+                      <th className="px-8 py-5 text-center">Country</th>
+                      <th className="px-8 py-5 text-center">Group</th>
                       <th className="px-8 py-5 text-right">Total Points</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {mvpList.map((player, index) => (
-                      <tr key={player.name} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="px-8 py-6 font-black text-lg text-slate-500">#{index + 1}</td>
-                        <td className="px-8 py-6 font-bold text-white uppercase text-xl">{player.name}</td>
-                        <td className="px-8 py-6 text-center">
-                          <span className="text-[9px] font-black uppercase px-3 py-1 rounded-lg bg-slate-800 text-slate-400 border border-white/5">{player.role}</span>
-                        </td>
-                        <td className="px-8 py-6 text-right font-mono text-3xl font-black text-orange-400">{player.points}</td>
-                      </tr>
-                    ))}
+                    {mvpList.map((player, index) => {
+                      let rankStyle = "text-slate-500";
+                      if (index === 0) rankStyle = "text-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]";
+                      if (index === 1) rankStyle = "text-slate-300 drop-shadow-[0_0_10px_rgba(203,213,225,0.5)]";
+                      if (index === 2) rankStyle = "text-orange-400 drop-shadow-[0_0_10px_rgba(251,146,60,0.5)]";
+
+                      return (
+                        <tr key={player.name} className="hover:bg-white/[0.02] transition-colors group">
+                          <td className={`px-8 py-6 font-black text-2xl ${rankStyle}`}>#{index + 1}</td>
+                          <td className="px-8 py-6 font-bold text-white uppercase text-xl group-hover:text-blue-400 transition-colors">{player.name}</td>
+                          <td className="px-8 py-6 text-center">
+                            <span className="text-[9px] font-black uppercase px-3 py-1 rounded-lg bg-slate-800 text-slate-400 border border-white/5 group-hover:border-white/10">{player.role}</span>
+                          </td>
+                          <td className="px-8 py-6 text-center">
+                            <span className="text-[10px] font-black uppercase text-slate-500 group-hover:text-slate-300 transition-colors">{player.country}</span>
+                          </td>
+                          <td className="px-8 py-6 text-center">
+                            <span className={`text-[10px] font-black uppercase transition-colors px-2 py-1 rounded ${player.group !== '-' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'text-slate-600'}`}>{player.group}</span>
+                          </td>
+                          <td className="px-8 py-6 text-right font-mono text-3xl font-black text-white group-hover:scale-110 transition-transform origin-right leading-none tracking-tighter shadow-black">{player.points}</td>
+                        </tr>
+                      );
+                    })}
                     {mvpList.length === 0 && (
                       <tr>
-                        <td colSpan="4" className="px-8 py-12 text-center text-slate-500 italic">No points recorded yet.</td>
+                        <td colSpan="6" className="px-8 py-12 text-center text-slate-500 italic">No points recorded yet.</td>
                       </tr>
                     )}
                   </tbody>
@@ -918,6 +967,20 @@ export default function App() {
                       ) || "UNK";
 
                       const playerPoints = playerRegistry[p.name]?.points || 0;
+                      const effectivePoints = isCap ? playerPoints * 2 : (isVC ? playerPoints * 1.5 : playerPoints);
+
+                      // Calculate High/Low Score within this team
+                      const teamScores = editingTeam.players.map(tp => {
+                        const pp = playerRegistry[tp.name]?.points || 0;
+                        if (tp.name === editingTeam.captainName) return pp * 2;
+                        if (tp.name === editingTeam.viceCaptainName) return pp * 1.5;
+                        return pp;
+                      });
+                      const maxScore = Math.max(...teamScores);
+                      const minScore = Math.min(...teamScores);
+
+                      const isHighest = effectivePoints === maxScore && maxScore !== 0; // Don't highlight if everyone is 0
+                      const isLowest = effectivePoints === minScore && minScore !== maxScore; // Only highlight if different from max
 
                       return (
                         <div key={idx}
@@ -938,7 +1001,12 @@ export default function App() {
                               }
                             }
                           }}
-                          className={`p-4 rounded-2xl border transition-all cursor-pointer flex justify-between items-center ${isInXI ? 'bg-blue-600/10 border-blue-500/40 ring-1 ring-blue-500/20' : 'bg-white/5 border-white/5 opacity-60 hover:opacity-80'}`}>
+                          className={`p-4 rounded-2xl border transition-all cursor-pointer flex justify-between items-center 
+                            ${isInXI ? 'bg-blue-600/10' : 'bg-white/5 opacity-60 hover:opacity-80'}
+                            ${isHighest ? 'border-green-500 ring-1 ring-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]' :
+                              isLowest ? 'border-red-500 ring-1 ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' :
+                                isInXI ? 'border-blue-500/40 ring-1 ring-blue-500/20' : 'border-white/5'}
+                          `}>
 
                           <div className="flex items-center gap-3">
                             <div className={`w-5 h-5 rounded flex items-center justify-center border ${isInXI ? 'bg-blue-500 border-blue-500' : 'border-slate-600'}`}>
@@ -956,7 +1024,7 @@ export default function App() {
                                 <span className="text-white">{playerTeam}</span>
                                 <span className="text-slate-600">•</span>
                                 <span className="text-blue-400">
-                                  {isCap ? playerPoints * 2 : (isVC ? playerPoints * 1.5 : playerPoints)} pts
+                                  {effectivePoints} pts
                                 </span>
                               </div>
                             </div>
@@ -1066,6 +1134,26 @@ export default function App() {
           </div>
         )
       }
+
+      {/* FLOATERS */}
+      <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-40">
+        {!isAdmin && (
+          <button onClick={() => setShowAdminLogin(true)} className="w-12 h-12 rounded-full bg-slate-800/80 text-slate-400 hover:bg-indigo-600 hover:text-white border border-white/5 backdrop-blur-md shadow-lg flex items-center justify-center transition-all hover:scale-110 active:scale-95 group">
+            <Settings size={20} className="group-hover:rotate-90 transition-transform duration-500" />
+          </button>
+        )}
+        <button onClick={() => {
+          if (window.confirm("Restore local backup?")) {
+            const saved = localStorage.getItem(LOCAL_STORAGE_KEY_ROSTER);
+            if (saved) {
+              setFantasyTeams(JSON.parse(saved));
+              alert("Restored");
+            } else alert("No backup");
+          }
+        }} className="w-12 h-12 rounded-full bg-slate-800/80 text-slate-400 hover:bg-emerald-600 hover:text-white border border-white/5 backdrop-blur-md shadow-lg flex items-center justify-center transition-all hover:scale-110 active:scale-95">
+          <DatabaseBackup size={20} />
+        </button>
+      </div>
 
       <Analytics />
     </div >
