@@ -1139,20 +1139,9 @@ export default function App() {
       <div className="fixed bottom-6 right-6 flex flex-col gap-3 z-40">
         {!isAdmin && (
           <button onClick={() => setShowAdminLogin(true)} className="w-12 h-12 rounded-full bg-slate-800/80 text-slate-400 hover:bg-indigo-600 hover:text-white border border-white/5 backdrop-blur-md shadow-lg flex items-center justify-center transition-all hover:scale-110 active:scale-95 group">
-            <Settings size={20} className="group-hover:rotate-90 transition-transform duration-500" />
+            <ShieldCheck size={20} className="group-hover:rotate-12 transition-transform duration-500" />
           </button>
         )}
-        <button onClick={() => {
-          if (window.confirm("Restore local backup?")) {
-            const saved = localStorage.getItem(LOCAL_STORAGE_KEY_ROSTER);
-            if (saved) {
-              setFantasyTeams(JSON.parse(saved));
-              alert("Restored");
-            } else alert("No backup");
-          }
-        }} className="w-12 h-12 rounded-full bg-slate-800/80 text-slate-400 hover:bg-emerald-600 hover:text-white border border-white/5 backdrop-blur-md shadow-lg flex items-center justify-center transition-all hover:scale-110 active:scale-95">
-          <DatabaseBackup size={20} />
-        </button>
       </div>
 
       <Analytics />
