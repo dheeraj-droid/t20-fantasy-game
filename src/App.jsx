@@ -278,9 +278,13 @@ export default function App() {
         t.players.some(fp => fp.name === p.name)
       )?.name || "-";
 
+      // Dynamically calculate matches played from matchResults
+      const matchesPlayed = Object.values(matchResults).filter(m => m[p.name] !== undefined && m[p.name] !== null).length;
+
       return {
         name: p.name,
         points: regData.points,
+        matchesPlayed: matchesPlayed,
         role: p.role,
         country,
         group
@@ -288,7 +292,7 @@ export default function App() {
     })
       .filter(p => p.name.toLowerCase().includes(mvpSearch.toLowerCase()))
       .sort((a, b) => b.points - a.points);
-  }, [playerRegistry, mvpSearch, fantasyTeams]);
+  }, [playerRegistry, mvpSearch, fantasyTeams, matchResults]);
 
   // --- ACTIONS ---
 
@@ -547,8 +551,9 @@ export default function App() {
     Object.keys(newMatchResults).forEach(mId => {
       const mPoints = newMatchResults[mId];
       Object.keys(mPoints).forEach(pName => {
-        if (!newRegistry[pName]) newRegistry[pName] = { points: 0 };
+        if (!newRegistry[pName]) newRegistry[pName] = { points: 0, matchesPlayed: 0 };
         newRegistry[pName].points += Number(mPoints[pName]);
+        newRegistry[pName].matchesPlayed += 1;
       });
     });
 
@@ -793,6 +798,7 @@ export default function App() {
                       <th className="px-8 py-5 text-center">Role</th>
                       <th className="px-8 py-5 text-center">Country</th>
                       <th className="px-8 py-5 text-center">Group</th>
+                      <th className="px-8 py-5 text-center">Played</th>
                       <th className="px-8 py-5 text-right">Total Points</th>
                     </tr>
                   </thead>
@@ -816,13 +822,16 @@ export default function App() {
                           <td className="px-8 py-6 text-center">
                             <span className={`text-[10px] font-black uppercase transition-colors px-2 py-1 rounded ${player.group !== '-' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'text-slate-600'}`}>{player.group}</span>
                           </td>
+                          <td className="px-8 py-6 text-center">
+                            <span className="text-xl font-black text-slate-400 group-hover:text-white transition-colors">{player.matchesPlayed}</span>
+                          </td>
                           <td className="px-8 py-6 text-right font-mono text-3xl font-black text-white group-hover:scale-110 transition-transform origin-right leading-none tracking-tighter shadow-black">{player.points}</td>
                         </tr>
                       );
                     })}
                     {mvpList.length === 0 && (
                       <tr>
-                        <td colSpan="6" className="px-8 py-12 text-center text-slate-500 italic">No points recorded yet.</td>
+                        <td colSpan="7" className="px-8 py-12 text-center text-slate-500 italic">No points recorded yet.</td>
                       </tr>
                     )}
                   </tbody>
