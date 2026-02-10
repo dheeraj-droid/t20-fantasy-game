@@ -946,14 +946,7 @@ export default function App() {
                     </p>
                     <div className="bg-blue-500/20 px-3 py-1 rounded-full border border-blue-500/30">
                       <p className="text-[10px] font-black uppercase text-blue-300 tracking-wider">
-                        Squad Points: <span className="text-white text-sm">
-                          {editingTeam.playingXINames.reduce((sum, n) => {
-                            let pts = playerRegistry[n]?.points || 0;
-                            if (n === editingTeam.captainName) pts *= 2;
-                            else if (n === editingTeam.viceCaptainName) pts *= 1.5;
-                            return sum + pts;
-                          }, 0)}
-                        </span>
+                        Total Team Points: <span className="text-white text-sm">{editingTeam.points}</span>
                       </p>
                     </div>
                   </div>
