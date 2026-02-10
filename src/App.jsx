@@ -42,7 +42,7 @@ const NATIONAL_SQUADS = {
     { name: "Dasun Shanaka", role: "AR" }, { name: "Pathum Nissanka", role: "BAT" }, { name: "Kamil Mishara", role: "BAT" },
     { name: "Kusal Mendis", role: "WK" }, { name: "Kamindu Mendis", role: "AR" }, { name: "Kusal Janith Perera", role: "WK" },
     { name: "Charith Asalanka", role: "BAT" }, { name: "Janith Liyanage", role: "BAT" }, { name: "Pavan Rathnayake", role: "BAT" },
-    { name: "Wanindu Hasaranga", role: "AR" }, { name: "Dunith Wellalage", role: "BOWL" }, { name: "Maheesh Theekshana", role: "BOWL" },
+    { name: "Dushan Hemantha", role: "AR" }, { name: "Dunith Wellalage", role: "BOWL" }, { name: "Maheesh Theekshana", role: "BOWL" },
     { name: "Dushmantha Chameera", role: "BOWL" }, { name: "Matheesha Pathirana", role: "BOWL" }, { name: "Eshan Malinga", role: "BOWL" }
   ],
   "ENG": [
@@ -87,7 +87,7 @@ const NATIONAL_SQUADS = {
 // DATABASE 2: FANTASY ROSTERS (User Teams)
 // ---------------------------------------------------------
 const FANTASY_ROSTERS = {
-  "Group 1": ["Kamindu Mendis", "Kuldeep Yadav", "Johnson Charles", "Suryakumar Yadav", "Wanindu Hasaranga", "Keshav Maharaj", "Mark Chapman", "Rachin Ravindra", "Axar Patel", "Quinton de Kock", "Rinku Singh", "Azmatullah Omarzai", "Rahmanullah Gurbaz", "Jofra Archer", "Jasprit Bumrah", "Josh Inglis", "Cooper Connolly"],
+  "Group 1": ["Kamindu Mendis", "Kuldeep Yadav", "Johnson Charles", "Suryakumar Yadav", "Dushan Hemantha", "Keshav Maharaj", "Mark Chapman", "Rachin Ravindra", "Axar Patel", "Quinton de Kock", "Rinku Singh", "Azmatullah Omarzai", "Rahmanullah Gurbaz", "Jofra Archer", "Jasprit Bumrah", "Josh Inglis", "Cooper Connolly"],
   "Group 2": ["Harry Brook", "Mohammad Nawaz", "Sam Curran", "Dushmantha Chameera", "Naseem Shah", "George Linde", "Arshdeep Singh", "Ishan Kishan", "Tim Seifert", "Nathan Ellis", "Tilak Varma", "Ryan Rickelton", "Mitchell Santner", "Kyle Jamieson", "Ibrahim Zadran", "Saim Ayub", "Adil Rashid"],
   "Group 3": ["Mitchell Marsh", "Dewald Brevis", "Varun Chakaravarthy", "Travis Head", "Brandon King", "Abrar Ahmed", "Usman Tariq", "Akeal Hosein", "Jason Smith", "Ben Dwarshuis", "Glenn Phillips", "Matt Henry", "Jason Holder", "Jos Buttler", "Luke Wood", "Usman Khan", "Liam Dawson"],
   "Group 4": ["Matthew Kuhnemann", "Ben Duckett", "Tom Banton", "Adam Zampa", "Philip Salt", "Shadab Khan", "Lungi Ngidi", "Glenn Maxwell", "Marcus Stoinis", "David Miller", "Jacob Bethell", "Aiden Markram", "Romario Shepherd", "Gudakesh Motie", "Marco Jansen", "Noor Ahmad", "Dasun Shanaka"],
