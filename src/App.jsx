@@ -10,7 +10,7 @@ import { Analytics } from "@vercel/analytics/react"
 
 // --- CONSTANTS ---
 const INITIAL_SYSTEM_TIME = new Date();
-const MATCH_DURATION_HOURS = 4;
+const MATCH_DURATION_HOURS = 3.5;
 const LOCAL_STORAGE_KEY_ROSTER = 'fantasy_roster_data';
 
 // ---------------------------------------------------------
