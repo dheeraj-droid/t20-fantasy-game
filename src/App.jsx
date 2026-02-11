@@ -296,13 +296,19 @@ export default function App() {
 
   // --- ACTIONS ---
 
-  const handleAdminLogin = () => {
-    if (adminPin === "0007") {
-      setIsAdmin(true);
-      setShowAdminLogin(false);
-      setAdminPin("");
-      setLoginError(false);
-    } else {
+  const handleAdminLogin = async () => {
+    try {
+      const result = await api.verifyAdminPin(adminPin);
+      if (result.success) {
+        setIsAdmin(true);
+        setShowAdminLogin(false);
+        setAdminPin("");
+        setLoginError(false);
+      } else {
+        setLoginError(true);
+      }
+    } catch (e) {
+      console.error(e);
       setLoginError(true);
     }
   };

@@ -105,6 +105,21 @@ app.post('/api/seed', async (req, res) => {
     }
 });
 
+// 6. Admin Authentication
+app.post('/api/admin-auth', async (req, res) => {
+    try {
+        const { pin } = req.body;
+        const correctPin = process.env.ADMIN_PIN || "0007";
+        if (pin === correctPin) {
+            res.json({ success: true });
+        } else {
+            res.status(401).json({ success: false, message: "Invalid PIN" });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📡 NeonDB integration active`);

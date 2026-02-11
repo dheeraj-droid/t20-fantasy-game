@@ -36,12 +36,23 @@ export const api = {
         });
     },
 
-    // 5. Seed / Reset
+    // 5. Seed Database
     seed: async (teams, metadata) => {
-        await fetch(`${API_URL}/seed`, {
+        const response = await fetch(`${API_URL}/seed`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ teams, metadata })
         });
+        return response.json();
+    },
+
+    // 6. Verify Admin PIN
+    verifyAdminPin: async (pin) => {
+        const response = await fetch(`${API_URL}/admin-auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin })
+        });
+        return response.json();
     }
 };
