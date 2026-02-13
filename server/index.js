@@ -120,6 +120,26 @@ app.post('/api/admin-auth', async (req, res) => {
     }
 });
 
+// 7. Group Authentication
+app.post('/api/group-auth', async (req, res) => {
+    try {
+        const { groupId, pin } = req.body;
+        const groupPinsStr = process.env.GROUP_PINS || "";
+        // Parse "g1:0001,g2:0002" into an object
+        const pinMap = Object.fromEntries(
+            groupPinsStr.split(',').map(pair => pair.split(':'))
+        );
+
+        if (pinMap[groupId] && pinMap[groupId] === pin) {
+            res.json({ success: true });
+        } else {
+            res.status(401).json({ success: false, message: "Invalid Group PIN" });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📡 NeonDB integration active`);

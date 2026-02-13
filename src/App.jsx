@@ -163,6 +163,17 @@ export default function App() {
   const [adminPin, setAdminPin] = useState("");
   const [loginError, setLoginError] = useState(false);
 
+  // --- GROUP AUTH ---
+  const [authorizedGroupIds, setAuthorizedGroupIds] = useState(() => {
+    const saved = localStorage.getItem('authorized_groups');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [groupAuthPending, setGroupAuthPending] = useState(null); // { team, pin, error }
+
+  useEffect(() => {
+    localStorage.setItem('authorized_groups', JSON.stringify(authorizedGroupIds));
+  }, [authorizedGroupIds]);
+
   const [activeTab, setActiveTab] = useState('leaderboard');
   const [editingTeam, setEditingTeam] = useState(null);
   const [mvpSearch, setMvpSearch] = useState("");
@@ -302,6 +313,25 @@ export default function App() {
       if (result.success) {
         setIsAdmin(true);
         setShowAdminLogin(false);
+        setAdminPin("");
+        setLoginError(false);
+      } else {
+        setLoginError(true);
+      }
+    } catch (e) {
+      console.error(e);
+      setLoginError(true);
+    }
+  };
+
+  const handleGroupLogin = async () => {
+    if (!groupAuthPending) return;
+    try {
+      const result = await api.verifyGroupPin(groupAuthPending.team.id, adminPin);
+      if (result.success) {
+        setAuthorizedGroupIds(prev => [...prev, groupAuthPending.team.id]);
+        setEditingTeam(JSON.parse(JSON.stringify(groupAuthPending.team)));
+        setGroupAuthPending(null);
         setAdminPin("");
         setLoginError(false);
       } else {
@@ -684,7 +714,7 @@ export default function App() {
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {sortedTeams.map((team, index) => {
-                    // Logic: Users can only edit if UNLOCKED. Admins can ALWAYS edit.
+                    const isAuthorized = isAdmin || authorizedGroupIds.includes(team.id);
                     const canEdit = !isLineupLocked || isAdmin;
 
                     return (
@@ -700,10 +730,16 @@ export default function App() {
                         <td className="px-8 py-6 text-right"><span className="text-4xl font-black font-mono text-green-400">{team.points}</span></td>
                         <td className="px-8 py-6 text-center">
                           <button
-                            onClick={() => setEditingTeam(JSON.parse(JSON.stringify(team)))}
+                            onClick={() => {
+                              if (canEdit && !isAuthorized) {
+                                setGroupAuthPending({ team });
+                              } else {
+                                setEditingTeam(JSON.parse(JSON.stringify(team)));
+                              }
+                            }}
                             className={`px-6 py-3 rounded-xl transition-all shadow-lg text-white font-black text-[10px] uppercase flex items-center justify-center gap-2 mx-auto w-40 ${canEdit ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
                           >
-                            {canEdit ? <><ListChecks size={16} /> Edit Lineup</> : <><Eye size={16} /> View Team</>}
+                            {canEdit ? (isAuthorized ? <><ListChecks size={16} /> Edit Lineup</> : <><Lock size={16} /> Unlock & Edit</>) : <><Eye size={16} /> View Team</>}
                           </button>
                         </td>
                       </tr>
@@ -875,6 +911,42 @@ export default function App() {
               {loginError && <p className="text-red-500 text-[10px] font-bold text-center mb-4 uppercase">Incorrect PIN</p>}
               <button onClick={handleAdminLogin} className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase rounded-xl tracking-widest shadow-lg transition-all">
                 Unlock System
+              </button>
+            </div>
+          </div>
+        )
+      }
+
+      {/* --- GROUP PIN MODAL --- */}
+      {
+        groupAuthPending && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4">
+            <div className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-sm p-8 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4">
+                <button onClick={() => { setGroupAuthPending(null); setAdminPin(""); setLoginError(false); }} className="text-slate-500 hover:text-white"><X size={20} /></button>
+              </div>
+              <div className="flex flex-col items-center gap-4 mb-6">
+                <div className="w-16 h-16 rounded-full bg-indigo-500/10 flex items-center justify-center text-indigo-500 mb-2">
+                  <Lock size={32} />
+                </div>
+                <h3 className="text-xl font-black uppercase text-white">Unlock Group</h3>
+                <p className="text-xs text-slate-500 text-center uppercase tracking-widest font-bold">
+                  Group: <span className="text-indigo-400">{groupAuthPending.team.name}</span>
+                </p>
+                <p className="text-[10px] text-slate-600 text-center leading-relaxed">Enter the PIN assigned to this group to authorize edits on this device.</p>
+              </div>
+              <input
+                type="password"
+                value={adminPin}
+                onChange={(e) => setAdminPin(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleGroupLogin()}
+                className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-center text-white font-mono text-xl tracking-[0.5em] focus:border-indigo-500 outline-none mb-4"
+                placeholder="••••"
+                autoFocus
+              />
+              {loginError && <p className="text-red-500 text-[10px] font-bold text-center mb-4 uppercase">Incorrect Group PIN</p>}
+              <button onClick={handleGroupLogin} className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase rounded-xl tracking-widest shadow-lg transition-all flex items-center justify-center gap-2">
+                <Unlock size={16} /> Authorize Edits
               </button>
             </div>
           </div>

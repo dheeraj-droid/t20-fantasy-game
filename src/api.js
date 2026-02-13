@@ -54,5 +54,15 @@ export const api = {
             body: JSON.stringify({ pin })
         });
         return response.json();
+    },
+
+    // 7. Verify Group PIN
+    verifyGroupPin: async (groupId, pin) => {
+        const response = await fetch(`${API_URL}/group-auth`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ groupId, pin })
+        });
+        return response.json();
     }
 };
