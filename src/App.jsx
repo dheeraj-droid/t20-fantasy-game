@@ -78,7 +78,7 @@ const NATIONAL_SQUADS = {
     { name: "Sediqullah Atal", role: "BAT" }, { name: "Fazalhaq Farooqi", role: "BOWL" }, { name: "Rahmanullah Gurbaz", role: "WK" },
     { name: "Mohammad Ishaq", role: "WK" }, { name: "Shahidullah Kamal", role: "AR" }, { name: "Mohammad Nabi", role: "AR" },
     { name: "Gulbadin Naib", role: "AR" }, { name: "Azmatullah Omarzai", role: "AR" }, { name: "Mujeeb Ur Rahman", role: "BOWL" },
-    { name: "Darwish Rasooli", role: "BAT" }, { name: "Ibrahim Zadran", role: "BAT" }, { name: "Naveen Ul Haq", role: "BOWL" }
+    { name: "Darwish Rasooli", role: "BAT" }, { name: "Ibrahim Zadran", role: "BAT" }, { name: "Ziaur Rahman Sharifi", role: "BOWL" }
   ],
 
 };
