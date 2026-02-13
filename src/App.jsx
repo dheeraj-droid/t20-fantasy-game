@@ -1026,7 +1026,7 @@ export default function App() {
                                 <span className="text-white">{playerTeam}</span>
                                 <span className="text-slate-600">•</span>
                                 <span className="text-blue-400">
-                                  {effectivePoints} pts
+                                  {playerPoints} pts
                                 </span>
                               </div>
                             </div>
