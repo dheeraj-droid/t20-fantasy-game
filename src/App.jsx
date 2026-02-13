@@ -976,18 +976,13 @@ export default function App() {
                       const playerPoints = playerRegistry[p.name]?.points || 0;
                       const effectivePoints = isCap ? playerPoints * 2 : (isVC ? playerPoints * 1.5 : playerPoints);
 
-                      // Calculate High/Low Score within this team
-                      const teamScores = editingTeam.players.map(tp => {
-                        const pp = playerRegistry[tp.name]?.points || 0;
-                        if (tp.name === editingTeam.captainName) return pp * 2;
-                        if (tp.name === editingTeam.viceCaptainName) return pp * 1.5;
-                        return pp;
-                      });
+                      // Calculate High/Low Score within this team based on BASE points
+                      const teamScores = editingTeam.players.map(tp => playerRegistry[tp.name]?.points || 0);
                       const maxScore = Math.max(...teamScores);
                       const minScore = Math.min(...teamScores);
 
-                      const isHighest = effectivePoints === maxScore && maxScore !== 0; // Don't highlight if everyone is 0
-                      const isLowest = effectivePoints === minScore && minScore !== maxScore; // Only highlight if different from max
+                      const isHighest = playerPoints === maxScore && maxScore !== 0; // Don't highlight if everyone is 0
+                      const isLowest = playerPoints === minScore && minScore !== maxScore; // Only highlight if different from max
 
                       return (
                         <div key={idx}
