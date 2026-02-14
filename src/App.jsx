@@ -60,7 +60,7 @@ const NATIONAL_SQUADS = {
     { name: "Quentin Sampson", role: "AR" }, { name: "Jayden Seales", role: "BOWL" }, { name: "Romario Shepherd", role: "AR" }
   ],
   "SA": [
-    { name: "Aiden Markram", role: "AR" }, { name: "Corbin Bosch", role: "AR" }, { name: "Dewald Brevis", role: "BAT" },
+    { name: "Aiden Markram", role: "BAT" }, { name: "Corbin Bosch", role: "AR" }, { name: "Dewald Brevis", role: "BAT" },
     { name: "Quinton de Kock", role: "WK" }, { name: "Marco Jansen", role: "AR" }, { name: "George Linde", role: "AR" },
     { name: "Keshav Maharaj", role: "BOWL" }, { name: "Kwena Maphaka", role: "BOWL" }, { name: "David Miller", role: "BAT" },
     { name: "Lungi Ngidi", role: "BOWL" }, { name: "Anrich Nortje", role: "BOWL" }, { name: "Kagiso Rabada", role: "BOWL" },
