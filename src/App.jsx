@@ -1319,7 +1319,7 @@ export default function App() {
                       )}
                       <div className="bg-blue-500/20 px-3 py-1 rounded-full border border-blue-500/30">
                         <p className="text-[10px] font-black uppercase text-blue-300 tracking-wider">
-                          Total Team Points: <span className="text-white text-sm">{editingTeam.points}</span>
+                          Total Team Points: <span className="text-white text-sm">{calculateTentativeScore(editingTeam)}</span>
                         </p>
                       </div>
                     </div>
