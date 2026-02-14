@@ -71,7 +71,7 @@ const NATIONAL_SQUADS = {
     { name: "Mark Chapman", role: "BAT" }, { name: "Devon Conway", role: "WK" }, { name: "Jacob Duffy", role: "BOWL" },
     { name: "Lockie Ferguson", role: "BOWL" }, { name: "Matt Henry", role: "BOWL" }, { name: "Kyle Jamieson", role: "BOWL" },
     { name: "Daryl Mitchell", role: "AR" }, { name: "James Neesham", role: "AR" }, { name: "Glenn Phillips", role: "AR" },
-    { name: "Rachin Ravindra", role: "AR" }, { name: "Tim Seifert", role: "WK" }, { name: "Ish Sodhi", role: "BOWL" }
+    { name: "Rachin Ravindra", role: "AR" }, { name: "Tim Seifert", role: "BAT" }, { name: "Ish Sodhi", role: "BOWL" }
   ],
   "AFG": [
     { name: "Rashid Khan", role: "BOWL" }, { name: "Noor Ahmad", role: "BOWL" }, { name: "Abdullah Ahmadzai", role: "BOWL" },
