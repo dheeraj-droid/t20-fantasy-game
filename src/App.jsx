@@ -310,7 +310,61 @@ export default function App() {
 
 
   // --- MEMOIZED DATA ---
-  const sortedTeams = useMemo(() => [...fantasyTeams].sort((a, b) => b.points - a.points), [fantasyTeams]);
+  const calculateTentativeScore = (team) => {
+    let totalScore = 0;
+    const assignedMatchIds = rounds.flatMap(r => r.matchIds);
+
+    // 1. Processed Matches from Past Rounds
+    rounds.forEach(round => {
+      const lineup = round.lineups[team.id];
+      if (lineup) {
+        round.matchIds.forEach(mId => {
+          const mPoints = matchResults[mId] || {};
+          team.players.forEach(p => {
+            if (lineup.playingXINames.includes(p.name)) {
+              const points = Number(mPoints[p.name] || 0);
+              let mult = 1;
+              if (p.name === lineup.captainName) mult = 2;
+              else if (p.name === lineup.viceCaptainName) mult = 1.5;
+              totalScore += (points * mult);
+            }
+          });
+        });
+      }
+    });
+
+    // 2. Processed Matches NOT in Past Rounds
+    const pendingMatchIds = processedMatchIds.filter(id => !assignedMatchIds.includes(id));
+
+    if (pendingMatchIds.length > 0) {
+      let lineup = team;
+      // If locked, try to find snapshot
+      if (isLineupLocked) {
+        const reversedHistory = [...lineupHistory].reverse();
+        const lastLock = reversedHistory.find(e => e.type === 'LOCK');
+        if (lastLock && lastLock.lineups && lastLock.lineups[team.id]) {
+          lineup = lastLock.lineups[team.id];
+        }
+      }
+
+      pendingMatchIds.forEach(mId => {
+        const mPoints = matchResults[mId] || {};
+        team.players.forEach(p => {
+          if (lineup.playingXINames.includes(p.name)) {
+            const points = Number(mPoints[p.name] || 0);
+            let mult = 1;
+            if (p.name === lineup.captainName) mult = 2;
+            else if (p.name === lineup.viceCaptainName) mult = 1.5;
+            totalScore += (points * mult);
+          }
+        });
+      });
+    }
+
+    return totalScore;
+  };
+
+  const sortedTeams = useMemo(() => [...fantasyTeams].sort((a, b) => b.points - a.points), [fantasyTeams, matchResults, rounds]);
 
   const mvpList = useMemo(() => {
     // 1. Get all players from National Squads to ensure everyone is listed
@@ -862,6 +916,7 @@ export default function App() {
                   <tr className="text-slate-500 text-[10px] font-black uppercase bg-black/20">
                     <th className="px-8 py-5">Rank</th>
                     <th className="px-8 py-5">Group</th>
+                    <th className="px-8 py-5 text-right">Tentative (No Chips)</th>
                     <th className="px-8 py-5 text-right">Points</th>
                     <th className="px-8 py-5 text-center">My Team</th>
                   </tr>
@@ -894,6 +949,7 @@ export default function App() {
                             <span className="flex items-center gap-1"><Zap size={10} className="text-indigo-500" /> {team.viceCaptainName || 'Not Set'}</span>
                           </div>
                         </td>
+                        <td className="px-8 py-6 text-right"><span className="text-xl font-bold font-mono text-slate-400">{calculateTentativeScore(team)}</span></td>
                         <td className="px-8 py-6 text-right"><span className="text-4xl font-black font-mono text-green-400">{team.points}</span></td>
                         <td className="px-8 py-6 text-center">
                           <button
