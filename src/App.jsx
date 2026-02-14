@@ -155,6 +155,7 @@ export default function App() {
   const [processedMatchIds, setProcessedMatchIds] = useState([]);
   const [matchResults, setMatchResults] = useState({}); // { matchId: { playerName: points } }
   const [teamMatchRewards, setTeamMatchRewards] = useState({}); // { matchId: { teamId: points } }
+  const [matchDetails, setMatchDetails] = useState({}); // { matchId: { pom: "Player Name" } }
 
   // --- AUTH STATE ---
   const [isAdmin, setIsAdmin] = useState(false);
@@ -182,6 +183,7 @@ export default function App() {
   const [matchSubmissionTimes, setMatchSubmissionTimes] = useState({}); // { matchId: ISOString }
   const [resolvingMatch, setResolvingMatch] = useState(null);
   const [manualPoints, setManualPoints] = useState({});
+  const [manualPom, setManualPom] = useState("");
   const [systemTime, setSystemTime] = useState(INITIAL_SYSTEM_TIME);
   const [loading, setLoading] = useState(true);
 
@@ -198,7 +200,15 @@ export default function App() {
       captainName: "", // INITIALIZE EMPTY
       viceCaptainName: "", // INITIALIZE EMPTY
       playingXINames: [], // INITIALIZE EMPTY
-      players: FANTASY_ROSTERS[groupName].map(name => ({ name }))
+      players: FANTASY_ROSTERS[groupName].map(name => ({ name })),
+      chips: {
+        flexi: { used: false },
+        bat: { used: false },
+        bowl: { used: false },
+        pom: { used: false }
+      },
+      activeChip: null, // 'flexi', 'bat', 'bowl', 'pom', or null
+      chipNomination: null // name of player for POM chip
     }));
     setFantasyTeams(initTeams);
   };
@@ -236,6 +246,7 @@ export default function App() {
             setLineupHistory(data.metadata.lineupHistory || []);
             setRounds(data.metadata.rounds || []);
             setMatchSubmissionTimes(data.metadata.matchSubmissionTimes || {});
+            setMatchDetails(data.metadata.matchDetails || {});
           }
           setCloudStatus("connected");
           setLastSynced(new Date());
@@ -255,10 +266,20 @@ export default function App() {
 
   // Pre-fill Modal for Updates
   useEffect(() => {
-    if (resolvingMatch && matchResults[resolvingMatch.id]) {
-      setManualPoints(matchResults[resolvingMatch.id]);
+    if (resolvingMatch) {
+      if (matchResults[resolvingMatch.id]) {
+        setManualPoints(matchResults[resolvingMatch.id]);
+      } else {
+        setManualPoints({});
+      }
+      if (matchDetails[resolvingMatch.id]?.pom) {
+        setManualPom(matchDetails[resolvingMatch.id].pom);
+      } else {
+        setManualPom("");
+      }
     } else {
       setManualPoints({});
+      setManualPom("");
     }
   }, [resolvingMatch]);
 
@@ -343,91 +364,233 @@ export default function App() {
     }
   };
 
-  const toggleLineupLock = async () => {
-    const newState = !isLineupLocked;
-    let newLineupHistory = [...lineupHistory];
+  /* --- ROUND MANAGEMENT --- */
+
+  const handleStartRound = async () => {
+    if (isLineupLocked) return;
 
     // Archive the event
     const event = {
-      type: newState ? 'LOCK' : 'UNLOCK',
+      type: 'LOCK',
       timestamp: new Date().toISOString()
     };
 
-    if (newState === true) {
-      // LOCKING: Capture snapshot for the upcoming round
-      event.lineups = {};
-      fantasyTeams.forEach(team => {
-        event.lineups[team.id] = {
-          playingXINames: team.playingXINames,
-          captainName: team.captainName,
-          viceCaptainName: team.viceCaptainName
-        };
-      });
-    } else {
-      // UNLOCKING: End of a round -> Archive it as a specific "Round" object
-      // 1. Find the last LOCK event to see when this round started
-      const reversedHistory = [...lineupHistory].reverse();
-      const lastLock = reversedHistory.find(e => e.type === 'LOCK');
+    // LOCKING: Capture snapshot for the upcoming round
+    event.lineups = {};
+    fantasyTeams.forEach(team => {
+      event.lineups[team.id] = {
+        playingXINames: team.playingXINames,
+        captainName: team.captainName,
+        viceCaptainName: team.viceCaptainName,
+        activeChip: team.activeChip,
+        chipNomination: team.chipNomination
+      };
+    });
 
-      if (lastLock && lastLock.lineups) {
-        const roundStart = new Date(lastLock.timestamp);
-        const roundEnd = new Date();
-
-        // 2. Find matches that STARTED in this window OR were FIRST SCORED in this window
-        const matchesInRound = MATCH_SCHEDULE.filter(m => {
-          const mStart = new Date(m.start);
-          const startedInWindow = mStart >= roundStart && mStart <= roundEnd;
-
-          const firstScoredTime = matchSubmissionTimes[m.id] ? new Date(matchSubmissionTimes[m.id]) : null;
-          const scoredInWindow = firstScoredTime && firstScoredTime >= roundStart && firstScoredTime <= roundEnd;
-
-          return startedInWindow || scoredInWindow;
-        }).map(m => m.id);
-
-        if (matchesInRound.length > 0) {
-          const newRound = {
-            id: `round_${Date.now()}`,
-            timestamp: new Date().toISOString(),
-            matchIds: matchesInRound,
-            lineups: lastLock.lineups // The lineups that were locked for this period
-          };
-
-          const updatedRounds = [...rounds, newRound];
-          setRounds(updatedRounds);
-
-          // Update metadata with new rounds immediately
-          await api.updateMetadata({
-            isLineupLocked: newState,
-            processedMatchIds,
-            matchResults,
-            teamMatchRewards,
-            lineupHistory: [...newLineupHistory, event], // Include the unlock event
-            rounds: updatedRounds,
-            matchSubmissionTimes
-          });
-          setIsLineupLocked(newState);
-          setLineupHistory([...newLineupHistory, event]);
-          return; // Exit early since we did the safe update
-        }
-      }
-    }
-
-    newLineupHistory.push(event);
-
+    const newLineupHistory = [...lineupHistory, event];
 
     try {
       await api.updateMetadata({
-        isLineupLocked: newState,
+        isLineupLocked: true,
         processedMatchIds,
         matchResults,
         teamMatchRewards,
         lineupHistory: newLineupHistory,
         rounds,
-        matchSubmissionTimes
+        matchSubmissionTimes,
+        matchDetails
       });
-      setIsLineupLocked(newState);
+      setIsLineupLocked(true);
       setLineupHistory(newLineupHistory);
     } catch (e) { console.error(e); }
+  };
+
+  const handleEndRound = async () => {
+    if (!isLineupLocked) return;
+
+    if (!window.confirm("Are you sure you want to END the round? This will calculate points, update the leaderboard, and unlock lineups.")) return;
+
+    // 1. Find the last LOCK event to see when this round started
+    const reversedHistory = [...lineupHistory].reverse();
+    const lastLock = reversedHistory.find(e => e.type === 'LOCK');
+
+    // Archive the unlock event
+    const unlockEvent = {
+      type: 'UNLOCK',
+      timestamp: new Date().toISOString()
+    };
+
+    let updatedRounds = [...rounds];
+    // matchesInRound will be calculated to associate with this round
+    let matchesInRound = [];
+
+    if (lastLock && lastLock.lineups) {
+      const roundStart = new Date(lastLock.timestamp);
+      const roundEnd = new Date();
+
+      // 2. Find matches that STARTED in this window OR were FIRST SCORED in this window
+      matchesInRound = MATCH_SCHEDULE.filter(m => {
+        const mStart = new Date(m.start);
+        const startedInWindow = mStart >= roundStart && mStart <= roundEnd;
+
+        // Check if scored in window (submission time)
+        const firstScoredTime = matchSubmissionTimes[m.id] ? new Date(matchSubmissionTimes[m.id]) : null;
+        const scoredInWindow = firstScoredTime && firstScoredTime >= roundStart && firstScoredTime <= roundEnd;
+
+        return startedInWindow || scoredInWindow;
+      }).map(m => m.id);
+
+      if (matchesInRound.length > 0) {
+        const newRound = {
+          id: `round_${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          matchIds: matchesInRound,
+          lineups: lastLock.lineups // The lineups that were locked for this period
+        };
+        updatedRounds.push(newRound);
+      }
+    }
+
+    // Reuse Scoring Logic from (old) handleScoreSubmit-ish logic but adapted for EndRound
+    // We need to recalculate ALL scores for ALL teams based on the rounds history + current round (if any matches just happened)
+    // Actually, simply iterating through 'updatedRounds' is enough because we just added the new round to it.
+
+    // Helper to calculate score for a specific round/lineup
+    const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, team) => {
+      const playerStats = {};
+
+      roundMatchIds.forEach(mId => {
+        const mPoints = matchResults[mId] || {};
+        const mPom = matchDetails[mId]?.pom;
+
+        team.players.forEach(p => {
+          const pName = p.name;
+          const isInXI = lineup.playingXINames.includes(pName);
+          if (isInXI) {
+            const rawPoints = Number(mPoints[pName] || 0);
+            if (!playerStats[pName]) playerStats[pName] = { points: 0, matches: 0, wonPom: false, role: getRole(pName) };
+            playerStats[pName].points += rawPoints;
+
+            // Count match only if there was a result
+            if (matchSubmissionTimes[mId]) playerStats[pName].matches += 1;
+            if (mPom === pName) playerStats[pName].wonPom = true;
+          }
+        });
+      });
+
+      // Determine Multipliers
+      let captain = lineup.captainName;
+      let viceCaptain = lineup.viceCaptainName;
+
+      if (activeChip === 'flexi') {
+        const sortedPlayers = Object.keys(playerStats).sort((a, b) => playerStats[b].points - playerStats[a].points);
+        if (sortedPlayers.length > 0) captain = sortedPlayers[0];
+        if (sortedPlayers.length > 1) viceCaptain = sortedPlayers[1];
+      }
+
+      let totalRoundPoints = 0;
+      Object.keys(playerStats).forEach(pName => {
+        const stats = playerStats[pName];
+        let finalPoints = stats.points;
+        // Captaincy Multiplier
+        let capMult = 1;
+        if (pName === captain) capMult = 2;
+        else if (pName === viceCaptain) capMult = 1.5;
+        // NOTE: We don't apply capMult yet if we want additive logic with chips.
+        // User Request: "if a specific player is vc and he gets batting boost then it should be his points * (1.5 + 2)"
+        // This implies: Total Multiplier = CapMult + ChipMult (if chip active)
+        // However, if NO chip is active, Total Multiplier = CapMult.
+        // If we strictly follow (CapMult + ChipMult), we must treat ChipMult as an ADDITIVE bonus (e.g. +200%? or +100%?)
+        // Let's interpret "Batting Boost" (2x) as adding a 2x multiplier value to the stack.
+        // Normal: 1x.
+        // VC + Boost: 1.5 + 2 = 3.5x.
+        // Cap + Boost: 2 + 2 = 4x.
+        // Normal + Boost: 1 + 2 = 3x.
+
+        let chipMult = 0; // Default 0 if not active
+
+        // Bat/Bowl Boost: Condition avg >= 100
+        if ((activeChip === 'bat' && stats.role === 'BAT') || (activeChip === 'bowl' && stats.role === 'BOWL')) {
+          const avg = stats.matches > 0 ? (stats.points / stats.matches) : 0;
+          if (avg >= 100) {
+            chipMult = 2;
+          }
+        }
+
+        // POM Boost: Condition wonPom
+        if (activeChip === 'pom' && chipNomination === pName && stats.wonPom) {
+          chipMult = 3;
+        }
+
+        // Final Calculation: Points * (CapMult + ChipMult)
+        // If chipMult is 0, it's just Points * CapMult.
+        // If chipMult is 2 (Boost), it's Points * (CapMult + 2).
+        totalRoundPoints += (stats.points * (capMult + chipMult));
+      });
+      return totalRoundPoints;
+    };
+
+    // Calculate Total Points for each team
+    const updatedFantasyTeams = fantasyTeams.map(team => {
+      let totalScore = 0;
+
+      // Sum from all rounds
+      updatedRounds.forEach(round => {
+        const lineup = round.lineups[team.id];
+        if (lineup) {
+          totalScore += calculateRoundScore(round.matchIds, lineup, lineup.activeChip, lineup.chipNomination, team);
+        }
+      });
+
+      // Handle Chips Burning
+      let newChips = { ...team.chips };
+      let newActiveChip = team.activeChip;
+      let newChipNomination = team.chipNomination;
+
+      // If a round was processed and the team had an active chip, burn it.
+      // Logic: matchesInRound > 0 implies a valid round occurred.
+      // We look at the 'lastLock' snapshot to see if chip was active *for this round*.
+      // But we must update the *current* team state to show it as used.
+      if (matchesInRound.length > 0 && lastLock?.lineups[team.id]?.activeChip) {
+        const usedChipId = lastLock.lineups[team.id].activeChip;
+        newChips[usedChipId] = { used: true };
+        // Reset active chip if it was the one used (it should be, unless changed mid-lock which is impossible in UI)
+        if (newActiveChip === usedChipId) {
+          newActiveChip = null;
+          newChipNomination = null;
+        }
+      }
+
+      return {
+        ...team,
+        points: totalScore,
+        chips: newChips,
+        activeChip: newActiveChip,
+        chipNomination: newChipNomination
+      };
+    });
+
+    const newLineupHistory = [...lineupHistory, unlockEvent];
+
+    try {
+      await api.updateTeams(updatedFantasyTeams);
+      await api.updateMetadata({
+        isLineupLocked: false,
+        processedMatchIds,
+        matchResults,
+        teamMatchRewards,
+        lineupHistory: newLineupHistory,
+        rounds: updatedRounds,
+        matchSubmissionTimes,
+        matchDetails
+      });
+
+      setFantasyTeams(updatedFantasyTeams);
+      setRounds(updatedRounds);
+      setIsLineupLocked(false);
+      setLineupHistory(newLineupHistory);
+
+    } catch (e) { console.error(e); alert("Failed to End Round"); }
   };
 
 
@@ -448,7 +611,15 @@ export default function App() {
         captainName: "",
         viceCaptainName: "",
         playingXINames: [],
-        players: FANTASY_ROSTERS[groupName].map(name => ({ name }))
+        players: FANTASY_ROSTERS[groupName].map(name => ({ name })),
+        chips: {
+          flexi: { used: false },
+          bat: { used: false },
+          bowl: { used: false },
+          pom: { used: false }
+        },
+        activeChip: null,
+        chipNomination: null
       }));
 
       const metadata = {
@@ -458,7 +629,8 @@ export default function App() {
         teamMatchRewards: {},
         lineupHistory: [],
         rounds: [],
-        matchSubmissionTimes: {}
+        matchSubmissionTimes: {},
+        matchDetails: {}
       };
 
       await api.seed(teams, metadata);
@@ -478,7 +650,7 @@ export default function App() {
   const handleScoreSubmit = async () => {
     if (!resolvingMatch) return;
 
-    // 1. Merge and find the updated Match Results source of truth
+    // --- 1. PREPARE DATA ---
     const existingMatchPoints = matchResults[resolvingMatch.id] || {};
     const mergedMatchPoints = { ...existingMatchPoints };
     Object.keys(manualPoints).forEach(pName => {
@@ -487,102 +659,22 @@ export default function App() {
         mergedMatchPoints[pName] = val;
       }
     });
-
     const newMatchResults = { ...matchResults, [resolvingMatch.id]: mergedMatchPoints };
 
-    // Capture Submission Time if it's the first time
+    const newMatchDetails = {
+      ...matchDetails,
+      [resolvingMatch.id]: { ...(matchDetails[resolvingMatch.id] || {}), pom: manualPom }
+    };
+
     const newSubmissionTimes = { ...matchSubmissionTimes };
     if (!newSubmissionTimes[resolvingMatch.id]) {
       newSubmissionTimes[resolvingMatch.id] = new Date().toISOString();
     }
 
-    // 2. GLOBAL RECALCULATION: Re-derive EVERYTHING from the logs
-    const newTeamRewards = {}; // matchId -> teamId -> points
 
-    // Sort history once for lookup efficiency (Oldest to Newest)
-    const sortedHistory = [...lineupHistory].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-    // Iterate over every match that has ANY result recorded
-    Object.keys(newMatchResults).forEach(mId => {
-      const mPoints = newMatchResults[mId];
-      const matchData = MATCH_SCHEDULE.find(m => m.id === Number(mId));
-      if (!matchData) return;
-
-      const mStartTime = new Date(matchData.start);
-
-      // Find the historical lineup for this specific match
-      let historicalSnapshot = null;
-      for (const event of sortedHistory) {
-        if (new Date(event.timestamp) > mStartTime) break;
-        if (event.type === 'LOCK') historicalSnapshot = event;
-        else if (event.type === 'UNLOCK') historicalSnapshot = null;
-      }
-
-      const existingMatchReward = teamMatchRewards[mId];
-      newTeamRewards[mId] = {};
-
-      fantasyTeams.forEach(team => {
-        let playingXI, captain, viceCap;
-
-        // NEW LOGIC: Explicit Round Lookup
-        // 1. Is this match part of a completed Round?
-        const explicitRound = rounds.find(r => r.matchIds.includes(Number(mId)));
-
-        if (explicitRound) {
-          const rData = explicitRound.lineups[team.id];
-          if (rData) {
-            playingXI = rData.playingXINames;
-            captain = rData.captainName;
-            viceCap = rData.viceCaptainName;
-          }
-        } else if (historicalSnapshot) {
-          // 2. Fallback to Time-Window Snapshot (if round not yet archived/unlocked)
-          const hData = historicalSnapshot.lineups[team.id];
-          if (hData) {
-            playingXI = hData.playingXINames;
-            captain = hData.captainName;
-            viceCap = hData.viceCaptainName;
-          }
-        }
-
-        // 2. PRESERVATION CASE: No snapshot found (e.g., match before first archive), 
-        // but we have a result. Reuse it UNLESS it's the match we are currently resolving.
-        if (!playingXI && existingMatchReward && existingMatchReward[team.id] !== undefined && mId !== String(resolvingMatch.id)) {
-          newTeamRewards[mId][team.id] = existingMatchReward[team.id];
-          return;
-        }
-
-        // 3. FALLBACK: New match or no snapshot/reward yet. Use current lineup.
-        if (!playingXI) {
-          playingXI = team.playingXINames;
-          captain = team.captainName;
-          viceCap = team.viceCaptainName;
-        }
-
-        let matchScore = 0;
-        playingXI.forEach(pName => {
-          const pPoints = Number(mPoints[pName] || 0);
-          if (pPoints !== 0) {
-            let mult = 1;
-            if (pName === captain) mult = 2;
-            else if (pName === viceCap) mult = 1.5;
-            matchScore += (pPoints * mult);
-          }
-        });
-        newTeamRewards[mId][team.id] = matchScore;
-      });
-    });
-
-    // 3. Update Fantasy Teams with Total Accumulation
-    const updatedFantasyTeams = fantasyTeams.map(team => {
-      let totalPoints = 0;
-      Object.keys(newTeamRewards).forEach(mId => {
-        totalPoints += (newTeamRewards[mId][team.id] || 0);
-      });
-      return { ...team, points: totalPoints };
-    });
-
-    // 4. Update Player Registry (MVP)
+    // --- 2. PLAYER REGISTRY ONLY (For MVP Table) ---
+    // User wants Leaderboard frozen, but MVP table usually reflects live stats.
+    // We will update Registry but NOT Fantasy Teams.
     const newRegistry = {};
     Object.keys(newMatchResults).forEach(mId => {
       const mPoints = newMatchResults[mId];
@@ -598,28 +690,34 @@ export default function App() {
       : [...processedMatchIds, resolvingMatch.id];
 
     try {
+      // Update Registry (Live MVP)
       await api.updateRegistry(newRegistry);
-      await api.updateTeams(updatedFantasyTeams);
+
+      // Update Metadata Only (Matches, Details, Times) - NO Round/Team Update
       await api.updateMetadata({
         processedMatchIds: newProcessedIds,
         isLineupLocked,
         matchResults: newMatchResults,
-        teamMatchRewards: newTeamRewards,
+        teamMatchRewards: {},
         lineupHistory,
         rounds,
-        matchSubmissionTimes: newSubmissionTimes
+        matchSubmissionTimes: newSubmissionTimes,
+        matchDetails: newMatchDetails
       });
 
+      // Update Local State
       setPlayerRegistry(newRegistry);
-      setFantasyTeams(updatedFantasyTeams);
       setProcessedMatchIds(newProcessedIds);
       setMatchResults(newMatchResults);
-      setTeamMatchRewards(newTeamRewards);
       setMatchSubmissionTimes(newSubmissionTimes);
+      setMatchDetails(newMatchDetails);
+      // setFantasyTeams() is explicitly OMITTED to keep leaderboard frozen.
+
     } catch (e) { console.error(e); alert("Failed to save score"); }
 
     setResolvingMatch(null);
     setManualPoints({});
+    setManualPom("");
   };
 
 
@@ -683,9 +781,15 @@ export default function App() {
             <div className="bg-purple-900/20 border border-purple-500/20 px-4 py-2 rounded-2xl flex items-center gap-3 backdrop-blur-md">
               <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest flex gap-2 items-center"><ShieldCheck size={14} /> Admin Mode</span>
               <div className="w-px h-4 bg-purple-500/20"></div>
-              <button onClick={toggleLineupLock} className={`text-[10px] font-black uppercase flex items-center gap-2 hover:text-white transition-all ${isLineupLocked ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {isLineupLocked ? "Unlock" : "Lock"}
-              </button>
+              {!isLineupLocked ? (
+                <button onClick={handleStartRound} className="text-[10px] font-black uppercase flex items-center gap-2 text-emerald-400 hover:text-emerald-300 transition-all">
+                  <Lock size={12} /> Start Round
+                </button>
+              ) : (
+                <button onClick={handleEndRound} className="text-[10px] font-black uppercase flex items-center gap-2 text-rose-400 hover:text-rose-300 transition-all">
+                  <Unlock size={12} /> End Round
+                </button>
+              )}
               <div className="w-px h-4 bg-purple-500/20"></div>
               <button onClick={handleSeedDatabase} className="text-[10px] font-black uppercase flex items-center gap-2 text-indigo-400 hover:text-white transition-all">
                 <RefreshCw size={12} /> Seed
@@ -998,6 +1102,19 @@ export default function App() {
               </div>
               {isAdmin && (
                 <div className="p-8 border-t border-white/5 bg-slate-950/50">
+                  <div className="mb-6">
+                    <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Player of the Match</h4>
+                    <select
+                      value={manualPom}
+                      onChange={(e) => setManualPom(e.target.value)}
+                      className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-sm font-bold text-white outline-none focus:border-blue-500 transition-all uppercase"
+                    >
+                      <option value="">Select Player...</option>
+                      {resolvingMatch.countries.flatMap(c => NATIONAL_SQUADS[c] || []).map(p => (
+                        <option key={p.name} value={p.name}>{p.name} ({p.role})</option>
+                      ))}
+                    </select>
+                  </div>
                   <button onClick={handleScoreSubmit} className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all">Confirm & Add Points</button>
                 </div>
               )}
@@ -1150,6 +1267,63 @@ export default function App() {
                     return (
                       <>
                         <div>
+                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Power Chips</h4>
+                          <div className="grid grid-cols-2 gap-2 mb-6">
+                            {[
+                              { id: 'flexi', label: 'Flexi Cap', icon: <Medal size={14} /> },
+                              { id: 'bat', label: 'Bat Boost', icon: <Activity size={14} /> },
+                              { id: 'bowl', label: 'Bowl Boost', icon: <Zap size={14} /> },
+                              { id: 'pom', label: 'POTM Boost', icon: <Star size={14} /> }
+                            ].map(chip => {
+                              const isUsed = editingTeam.chips[chip.id]?.used;
+                              const isActive = editingTeam.activeChip === chip.id;
+
+                              return (
+                                <button
+                                  key={chip.id}
+                                  disabled={isUsed || (isLineupLocked && !isAdmin)}
+                                  onClick={() => {
+                                    if (isActive) {
+                                      setEditingTeam({ ...editingTeam, activeChip: null, chipNomination: null });
+                                    } else {
+                                      setEditingTeam({ ...editingTeam, activeChip: chip.id, chipNomination: null });
+                                    }
+                                  }}
+                                  className={`p-3 rounded-xl border transition-all flex items-center justify-between group/chip ${isActive
+                                    ? 'bg-indigo-500 text-white border-indigo-500 shadow-lg shadow-indigo-500/20'
+                                    : isUsed
+                                      ? 'bg-slate-800/50 text-slate-600 border-white/5 cursor-not-allowed'
+                                      : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10 hover:text-white'
+                                    }`}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    {chip.icon}
+                                    <span className="text-[10px] font-black uppercase">{chip.label}</span>
+                                  </div>
+                                  {isUsed && <span className="text-[8px] font-black uppercase text-slate-600">Used</span>}
+                                  {isActive && <CheckCircle2 size={14} />}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {editingTeam.activeChip === 'pom' && (
+                            <div className="mb-6 animate-in slide-in-from-top-2 fade-in duration-300">
+                              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Nominate Player</h4>
+                              <select
+                                value={editingTeam.chipNomination || ""}
+                                onChange={(e) => setEditingTeam({ ...editingTeam, chipNomination: e.target.value })}
+                                disabled={isLineupLocked && !isAdmin}
+                                className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-indigo-500 transition-all uppercase"
+                              >
+                                <option value="">Select a Player...</option>
+                                {editingTeam.players.map(p => (
+                                  <option key={p.name} value={p.name}>{p.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+
                           <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Roles Selected</h4>
                           <div className="grid grid-cols-2 gap-2">
                             {['WK', 'BAT', 'AR', 'BOWL'].map(r => {
