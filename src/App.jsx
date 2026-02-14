@@ -148,7 +148,7 @@ const getRole = (playerName) => {
 };
 
 // --- SHARED SCORING HELPER ---
-const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, team, matchResults, matchDetails, matchSubmissionTimes) => {
+const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, team, matchResults, matchDetails, matchSubmissionTimes, playerRegistry = {}) => {
   const playerStats = {};
 
   roundMatchIds.forEach(mId => {
@@ -175,7 +175,11 @@ const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, 
   let viceCaptain = lineup.viceCaptainName;
 
   if (activeChip === 'flexi') {
-    const sortedPlayers = Object.keys(playerStats).sort((a, b) => playerStats[b].points - playerStats[a].points);
+    const sortedPlayers = Object.keys(playerStats).sort((a, b) => {
+      const diff = playerStats[b].points - playerStats[a].points;
+      if (diff !== 0) return diff;
+      return (playerRegistry[b]?.points || 0) - (playerRegistry[a]?.points || 0);
+    });
     if (sortedPlayers.length > 0) captain = sortedPlayers[0];
     if (sortedPlayers.length > 1) viceCaptain = sortedPlayers[1];
   }
@@ -374,7 +378,7 @@ export default function App() {
     rounds.forEach(round => {
       const lineup = round.lineups[team.id];
       if (lineup) {
-        totalScore += calculateRoundScore(round.matchIds, lineup, lineup.activeChip, lineup.chipNomination, team, matchResults, matchDetails, matchSubmissionTimes);
+        totalScore += calculateRoundScore(round.matchIds, lineup, lineup.activeChip, lineup.chipNomination, team, matchResults, matchDetails, matchSubmissionTimes, playerRegistry);
       }
     });
 
@@ -386,7 +390,7 @@ export default function App() {
         const lastLock = [...lineupHistory].reverse().find(e => e.type === 'LOCK');
         if (lastLock?.lineups?.[team.id]) lineup = lastLock.lineups[team.id];
       }
-      totalScore += calculateRoundScore(pendingMatchIds, lineup, lineup.activeChip, lineup.chipNomination, team, matchResults, matchDetails, matchSubmissionTimes);
+      totalScore += calculateRoundScore(pendingMatchIds, lineup, lineup.activeChip, lineup.chipNomination, team, matchResults, matchDetails, matchSubmissionTimes, playerRegistry);
     }
 
     return totalScore;
@@ -572,8 +576,12 @@ export default function App() {
               });
             });
 
-            // Sort by points desc
-            const sorted = Object.keys(pStats).sort((a, b) => pStats[b] - pStats[a]);
+            // Sort by points desc with tie-breaker
+            const sorted = Object.keys(pStats).sort((a, b) => {
+              const diff = pStats[b] - pStats[a];
+              if (diff !== 0) return diff;
+              return (playerRegistry[b]?.points || 0) - (playerRegistry[a]?.points || 0);
+            });
 
             if (sorted.length > 0) {
               lineup.captainName = sorted[0];
@@ -612,7 +620,7 @@ export default function App() {
       updatedRounds.forEach(round => {
         const lineup = round.lineups[team.id];
         if (lineup) {
-          totalScore += calculateRoundScore(round.matchIds, lineup, lineup.activeChip, lineup.chipNomination, team, matchResults, matchDetails, matchSubmissionTimes);
+          totalScore += calculateRoundScore(round.matchIds, lineup, lineup.activeChip, lineup.chipNomination, team, matchResults, matchDetails, matchSubmissionTimes, playerRegistry);
         }
       });
 
@@ -1356,7 +1364,11 @@ export default function App() {
                         let flexiVC = null;
                         if (editingTeam.activeChip === 'flexi') {
                           const sorted = [...editingTeam.playingXINames]
-                            .sort((a, b) => (playerRoundStats[b]?.points || 0) - (playerRoundStats[a]?.points || 0));
+                            .sort((a, b) => {
+                              const diff = (playerRoundStats[b]?.points || 0) - (playerRoundStats[a]?.points || 0);
+                              if (diff !== 0) return diff;
+                              return (playerRegistry[b]?.points || 0) - (playerRegistry[a]?.points || 0);
+                            });
                           if (sorted.length > 0) flexiC = sorted[0];
                           if (sorted.length > 1) flexiVC = sorted[1];
                         }
@@ -1375,13 +1387,14 @@ export default function App() {
                           const playerPoints = playerRegistry[p.name]?.points || 0;
                           // const effectivePoints ... (used for display logic if needed, but not in current snippet)
 
-                          // Calculate High/Low Score within this team based on BASE points
-                          const teamScores = editingTeam.players.map(tp => playerRegistry[tp.name]?.points || 0);
-                          const maxScore = Math.max(...teamScores);
-                          const minScore = Math.min(...teamScores);
+                          // Calculate High/Low Score within this team based on CURRENT ROUND points
+                          const teamRoundScores = editingTeam.players.map(tp => playerRoundStats[tp.name]?.points || 0);
+                          const maxRoundScore = Math.max(...teamRoundScores);
+                          const minRoundScore = Math.min(...teamRoundScores);
 
-                          const isHighest = playerPoints === maxScore && maxScore !== 0;
-                          const isLowest = playerPoints === minScore && minScore !== maxScore;
+                          const currentRoundPoints = playerRoundStats[p.name]?.points || 0;
+                          const isHighest = currentRoundPoints === maxRoundScore && maxRoundScore !== 0;
+                          const isLowest = currentRoundPoints === minRoundScore && minRoundScore !== maxRoundScore;
 
                           return (
                             <div key={idx}
@@ -1492,7 +1505,13 @@ export default function App() {
                                 if (isActive) {
                                   setEditingTeam({ ...editingTeam, activeChip: null, chipNomination: null });
                                 } else {
-                                  setEditingTeam({ ...editingTeam, activeChip: chip.id, chipNomination: null });
+                                  setEditingTeam({
+                                    ...editingTeam,
+                                    activeChip: chip.id,
+                                    chipNomination: null,
+                                    captainName: chip.id === 'flexi' ? "" : editingTeam.captainName,
+                                    viceCaptainName: chip.id === 'flexi' ? "" : editingTeam.viceCaptainName
+                                  });
                                 }
                               }}
                               className={`p-3 rounded-xl border transition-all flex items-center justify-between group/chip ${isActive
@@ -1584,7 +1603,8 @@ export default function App() {
                                 editingTeam,
                                 matchResults,
                                 matchDetails,
-                                matchSubmissionTimes
+                                matchSubmissionTimes,
+                                playerRegistry
                               );
 
                               const chipIcons = {
