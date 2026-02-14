@@ -160,8 +160,9 @@ const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, 
       const isInXI = lineup.playingXINames.includes(pName);
       if (isInXI) {
         const rawPoints = Number(mPoints[pName] || 0);
-        if (!playerStats[pName]) playerStats[pName] = { points: 0, matches: 0, wonPom: false, role: getRole(pName) };
+        if (!playerStats[pName]) playerStats[pName] = { points: 0, matches: 0, wonPom: false, role: getRole(pName), maxSingleMatchPoints: 0 };
         playerStats[pName].points += rawPoints;
+        if (rawPoints > playerStats[pName].maxSingleMatchPoints) playerStats[pName].maxSingleMatchPoints = rawPoints;
 
         if (matchSubmissionTimes[mId]) playerStats[pName].matches += 1;
         if (mPom === pName) playerStats[pName].wonPom = true;
@@ -188,8 +189,7 @@ const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, 
 
     let chipMult = 0;
     if ((activeChip === 'bat' && stats.role === 'BAT') || (activeChip === 'bowl' && stats.role === 'BOWL')) {
-      const avg = stats.matches > 0 ? (stats.points / stats.matches) : 0;
-      if (avg >= 100) chipMult = 2;
+      if (stats.maxSingleMatchPoints >= 100) chipMult = 2;
     }
     if (activeChip === 'pom' && chipNomination === pName && stats.wonPom) chipMult = 3;
 
