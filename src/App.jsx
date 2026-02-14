@@ -4,7 +4,7 @@ import { api } from './api';
 import {
   Trophy, Activity, Edit3, X, Save, RefreshCw, Star, ClipboardList,
   Medal, Calendar, Zap, CheckCircle2, AlertCircle, Clock, Lock, Unlock,
-  Hash, Calculator, Users, ShieldCheck, ListChecks, Settings, Flag, Check, LogOut, KeyRound, Eye, Search, DatabaseBackup
+  Hash, Calculator, Users, ShieldCheck, ListChecks, Settings, Flag, Check, LogOut, KeyRound, Eye, Search, DatabaseBackup, History
 } from 'lucide-react';
 import { Analytics } from "@vercel/analytics/react"
 
@@ -392,7 +392,10 @@ export default function App() {
     return totalScore;
   };
 
-  const sortedTeams = useMemo(() => [...fantasyTeams].sort((a, b) => b.points - a.points), [fantasyTeams, matchResults, rounds]);
+  const sortedTeams = useMemo(() =>
+    [...fantasyTeams].sort((a, b) => calculateTentativeScore(b) - calculateTentativeScore(a)),
+    [fantasyTeams, matchResults, rounds, processedMatchIds, lineupHistory, isLineupLocked, matchDetails, matchSubmissionTimes]
+  );
 
   const mvpList = useMemo(() => {
     // 1. Get all players from National Squads to ensure everyone is listed
@@ -703,7 +706,8 @@ export default function App() {
           flexi: { used: false },
           bat: { used: false },
           bowl: { used: false },
-          pom: { used: false }
+          pom: { used: false },
+          converter: { used: false }
         },
         activeChip: null,
         chipNomination: null
@@ -1331,87 +1335,142 @@ export default function App() {
                 <div className="flex-grow overflow-hidden flex flex-col md:flex-row">
                   <div className="w-full md:w-2/3 overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-white/10">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {editingTeam.players.map((p, idx) => {
-                        const isInXI = editingTeam.playingXINames.includes(p.name);
-                        const role = getRole(p.name);
-                        const isCap = editingTeam.captainName === p.name;
-                        const isVC = editingTeam.viceCaptainName === p.name;
+                      {(() => {
+                        const assignedMatchIds = rounds.flatMap(r => r.matchIds);
+                        const currentRoundMatchIds = processedMatchIds.filter(id => !assignedMatchIds.includes(id));
 
-                        const playerTeam = Object.keys(NATIONAL_SQUADS).find(t =>
-                          NATIONAL_SQUADS[t].some(pl => pl.name === p.name)
-                        ) || "UNK";
+                        // Calculate Round Stats for each player for Chip Indicators
+                        const playerRoundStats = {};
+                        editingTeam.players.forEach(p => {
+                          playerRoundStats[p.name] = { points: 0, maxSingle: 0, wonPom: false };
+                          currentRoundMatchIds.forEach(mId => {
+                            const pts = Number(matchResults[mId]?.[p.name] || 0);
+                            playerRoundStats[p.name].points += pts;
+                            if (pts > playerRoundStats[p.name].maxSingle) playerRoundStats[p.name].maxSingle = pts;
+                            if (matchDetails[mId]?.pom === p.name) playerRoundStats[p.name].wonPom = true;
+                          });
+                        });
 
-                        const playerPoints = playerRegistry[p.name]?.points || 0;
-                        // const effectivePoints ... (used for display logic if needed, but not in current snippet)
+                        // Determine Flexi C/VC
+                        let flexiC = null;
+                        let flexiVC = null;
+                        if (editingTeam.activeChip === 'flexi') {
+                          const sorted = [...editingTeam.playingXINames]
+                            .sort((a, b) => (playerRoundStats[b]?.points || 0) - (playerRoundStats[a]?.points || 0));
+                          if (sorted.length > 0) flexiC = sorted[0];
+                          if (sorted.length > 1) flexiVC = sorted[1];
+                        }
 
-                        // Calculate High/Low Score within this team based on BASE points
-                        const teamScores = editingTeam.players.map(tp => playerRegistry[tp.name]?.points || 0);
-                        const maxScore = Math.max(...teamScores);
-                        const minScore = Math.min(...teamScores);
+                        return editingTeam.players.map((p, idx) => {
 
-                        const isHighest = playerPoints === maxScore && maxScore !== 0;
-                        const isLowest = playerPoints === minScore && minScore !== maxScore;
+                          const isInXI = editingTeam.playingXINames.includes(p.name);
+                          const role = getRole(p.name);
+                          const isCap = editingTeam.captainName === p.name;
+                          const isVC = editingTeam.viceCaptainName === p.name;
 
-                        return (
-                          <div key={idx}
-                            onClick={() => {
-                              if (isLineupLocked && !isAdmin) return;
-                              const current = [...editingTeam.playingXINames];
-                              if (isInXI) {
-                                const filtered = current.filter(n => n !== p.name);
-                                setEditingTeam({
-                                  ...editingTeam,
-                                  playingXINames: filtered,
-                                  captainName: isCap ? "" : editingTeam.captainName,
-                                  viceCaptainName: isVC ? "" : editingTeam.viceCaptainName
-                                });
-                              } else {
-                                if (current.length < 11) {
-                                  setEditingTeam({ ...editingTeam, playingXINames: [...current, p.name] });
+                          const playerTeam = Object.keys(NATIONAL_SQUADS).find(t =>
+                            NATIONAL_SQUADS[t].some(pl => pl.name === p.name)
+                          ) || "UNK";
+
+                          const playerPoints = playerRegistry[p.name]?.points || 0;
+                          // const effectivePoints ... (used for display logic if needed, but not in current snippet)
+
+                          // Calculate High/Low Score within this team based on BASE points
+                          const teamScores = editingTeam.players.map(tp => playerRegistry[tp.name]?.points || 0);
+                          const maxScore = Math.max(...teamScores);
+                          const minScore = Math.min(...teamScores);
+
+                          const isHighest = playerPoints === maxScore && maxScore !== 0;
+                          const isLowest = playerPoints === minScore && minScore !== maxScore;
+
+                          return (
+                            <div key={idx}
+                              onClick={() => {
+                                if (isLineupLocked && !isAdmin) return;
+                                const current = [...editingTeam.playingXINames];
+                                if (isInXI) {
+                                  const filtered = current.filter(n => n !== p.name);
+                                  setEditingTeam({
+                                    ...editingTeam,
+                                    playingXINames: filtered,
+                                    captainName: isCap ? "" : editingTeam.captainName,
+                                    viceCaptainName: isVC ? "" : editingTeam.viceCaptainName
+                                  });
+                                } else {
+                                  if (current.length < 11) {
+                                    setEditingTeam({ ...editingTeam, playingXINames: [...current, p.name] });
+                                  }
                                 }
-                              }
-                            }}
-                            className={`p-4 rounded-2xl border transition-all cursor-pointer flex justify-between items-center
+                              }}
+                              className={`p-4 rounded-2xl border transition-all cursor-pointer flex justify-between items-center
                           ${isInXI ? 'bg-blue-600/10' : 'bg-white/5 opacity-60 hover:opacity-80'}
                           ${isHighest ? 'border-green-500 ring-1 ring-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]' :
-                                isLowest ? 'border-red-500 ring-1 ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' :
-                                  isInXI ? 'border-blue-500/40 ring-1 ring-blue-500/20' : 'border-white/5'}
+                                  isLowest ? 'border-red-500 ring-1 ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' :
+                                    isInXI ? 'border-blue-500/40 ring-1 ring-blue-500/20' : 'border-white/5'}
                         `}>
 
-                            <div className="flex items-center gap-3">
-                              <div className={`w-5 h-5 rounded flex items-center justify-center border ${isInXI ? 'bg-blue-500 border-blue-500' : 'border-slate-600'}`}>
-                                {isInXI && <Check size={12} className="text-white" />}
-                              </div>
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <p className="font-bold text-white text-sm uppercase">{p.name}</p>
-                                  {isCap && <span className="bg-yellow-500 text-black text-[8px] font-black px-1.5 rounded">C (2x)</span>}
-                                  {isVC && <span className="bg-indigo-500 text-white text-[8px] font-black px-1.5 rounded">VC (1.5x)</span>}
+                              <div className="flex items-center gap-3">
+                                <div className={`w-5 h-5 rounded flex items-center justify-center border ${isInXI ? 'bg-blue-500 border-blue-500' : 'border-slate-600'}`}>
+                                  {isInXI && <Check size={12} className="text-white" />}
                                 </div>
-                                <div className="flex items-center gap-2 text-[8px] text-slate-400 font-black uppercase">
-                                  <span>{role}</span>
-                                  <span className="text-slate-600">•</span>
-                                  <span className="text-white">{playerTeam}</span>
-                                  <span className="text-slate-600">•</span>
-                                  <span className="text-blue-400">
-                                    {playerPoints} pts
-                                  </span>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-bold text-white text-sm uppercase">{p.name}</p>
+                                    {isCap && <span className="bg-yellow-500 text-black text-[8px] font-black px-1.5 rounded">C (2x)</span>}
+                                    {isVC && <span className="bg-indigo-500 text-white text-[8px] font-black px-1.5 rounded">VC (1.5x)</span>}
+
+                                    {/* Chip Indicators */}
+                                    {editingTeam.activeChip === 'flexi' && p.name === flexiC && (
+                                      <span className="bg-amber-500 text-black text-[8px] font-black px-1.5 rounded flex items-center gap-1">
+                                        <Medal size={8} /> FLEXI C (2x)
+                                      </span>
+                                    )}
+                                    {editingTeam.activeChip === 'flexi' && p.name === flexiVC && (
+                                      <span className="bg-slate-400 text-black text-[8px] font-black px-1.5 rounded flex items-center gap-1">
+                                        <Medal size={8} /> FLEXI VC (1.5x)
+                                      </span>
+                                    )}
+                                    {editingTeam.activeChip === 'bat' && role === 'BAT' && playerRoundStats[p.name].maxSingle >= 100 && (
+                                      <span className="bg-emerald-500 text-white text-[8px] font-black px-1.5 rounded flex items-center gap-1">
+                                        <Activity size={8} /> BOOST (2x)
+                                      </span>
+                                    )}
+                                    {editingTeam.activeChip === 'bowl' && role === 'BOWL' && playerRoundStats[p.name].maxSingle >= 100 && (
+                                      <span className="bg-emerald-500 text-white text-[8px] font-black px-1.5 rounded flex items-center gap-1">
+                                        <Zap size={8} /> BOOST (2x)
+                                      </span>
+                                    )}
+                                    {editingTeam.activeChip === 'pom' && editingTeam.chipNomination === p.name && playerRoundStats[p.name].wonPom && (
+                                      <span className="bg-emerald-500 text-white text-[8px] font-black px-1.5 rounded flex items-center gap-1">
+                                        <Star size={8} /> POM (3x)
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 text-[8px] text-slate-400 font-black uppercase">
+                                    <span>{role}</span>
+                                    <span className="text-slate-600">•</span>
+                                    <span className="text-white">{playerTeam}</span>
+                                    <span className="text-slate-600">•</span>
+                                    <span className="text-blue-400">
+                                      Round: {playerRoundStats[p.name].points} | Total: {playerPoints}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
+                              {isInXI && (!isLineupLocked || isAdmin) && editingTeam.activeChip !== 'flexi' && (
+                                <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                  <button onClick={() => setEditingTeam({ ...editingTeam, captainName: p.name, viceCaptainName: isVC ? "" : editingTeam.viceCaptainName })} className={`w-6 h-6 rounded text-[8px] font-black ${isCap ? 'bg-yellow-500 text-black' : 'bg-black/30 text-slate-500'}`}>C</button>
+                                  <button onClick={() => setEditingTeam({ ...editingTeam, viceCaptainName: p.name, captainName: isCap ? "" : editingTeam.captainName })} className={`w-6 h-6 rounded text-[8px] font-black ${isVC ? 'bg-indigo-500 text-white' : 'bg-black/30 text-slate-500'}`}>VC</button>
+                                </div>
+                              )}
                             </div>
-                            {isInXI && (!isLineupLocked || isAdmin) && editingTeam.activeChip !== 'flexi' && (
-                              <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                                <button onClick={() => setEditingTeam({ ...editingTeam, captainName: p.name, viceCaptainName: isVC ? "" : editingTeam.viceCaptainName })} className={`w-6 h-6 rounded text-[8px] font-black ${isCap ? 'bg-yellow-500 text-black' : 'bg-black/30 text-slate-500'}`}>C</button>
-                                <button onClick={() => setEditingTeam({ ...editingTeam, viceCaptainName: p.name, captainName: isCap ? "" : editingTeam.captainName })} className={`w-6 h-6 rounded text-[8px] font-black ${isVC ? 'bg-indigo-500 text-white' : 'bg-black/30 text-slate-500'}`}>VC</button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      })()}
                     </div>
                   </div>
 
-                  <div className="w-full md:w-1/3 bg-black/40 border-l border-white/5 p-8 flex flex-col gap-6">
+                  <div className="w-full md:w-1/3 bg-black/40 border-l border-white/5 p-8 flex flex-col gap-6 overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
                     <div>
                       <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Power Chips</h4>
                       <div className="grid grid-cols-2 gap-2 mb-6">
@@ -1419,7 +1478,8 @@ export default function App() {
                           { id: 'flexi', label: 'Flexi Cap', icon: <Medal size={14} /> },
                           { id: 'bat', label: 'Bat Boost', icon: <Activity size={14} /> },
                           { id: 'bowl', label: 'Bowl Boost', icon: <Zap size={14} /> },
-                          { id: 'pom', label: 'POTM Boost', icon: <Star size={14} /> }
+                          { id: 'pom', label: 'POTM Boost', icon: <Star size={14} /> },
+                          { id: 'converter', label: 'Converter', icon: <RefreshCw size={14} /> }
                         ].map(chip => {
                           const isUsed = editingTeam.chips[chip.id]?.used;
                           const isActive = editingTeam.activeChip === chip.id;
@@ -1470,8 +1530,10 @@ export default function App() {
                         </div>
                       )}
 
+                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 text-center border-y border-white/5 py-2">Verification</h4>
+
                       <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Roles Selected</h4>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-2 mb-6">
                         {['WK', 'BAT', 'AR', 'BOWL'].map(r => {
                           const min = (r === 'WK' || r === 'AR') ? 1 : 2;
                           const val = counts[r];
@@ -1488,16 +1550,78 @@ export default function App() {
                           )
                         })}
                       </div>
-                    </div>
 
-                    <div className="flex-grow">
-                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Validation</h4>
-                      <div className="space-y-2">
-                        {errors.map((e, i) => (
-                          <div key={i} className="text-[10px] text-red-300 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20 flex gap-2 items-center"><X size={12} /> {e}</div>
-                        ))}
-                        {isValid && <div className="text-[10px] text-green-300 bg-green-500/10 px-3 py-2 rounded-lg border border-green-500/20 flex gap-2 items-center"><Check size={12} /> Squad Valid</div>}
+                      <div className="mb-6">
+                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Team Balance</h4>
+                        <div className="space-y-2">
+                          {errors.map((e, i) => (
+                            <div key={i} className="text-[10px] text-red-300 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20 flex gap-2 items-center"><X size={12} /> {e}</div>
+                          ))}
+                          {isValid && <div className="text-[10px] text-green-300 bg-green-500/10 px-3 py-2 rounded-lg border border-green-500/20 flex gap-2 items-center"><Check size={12} /> Squad Valid</div>}
+                        </div>
                       </div>
+
+                      {/* Round History Breakdown */}
+                      <div className="mt-4 pt-6 border-t border-white/10">
+                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                          <History size={12} /> Round History
+                        </h4>
+                        <div className="space-y-2 pr-2">
+                          {rounds.length === 0 ? (
+                            <div className="text-[10px] text-slate-600 italic px-3 py-2 bg-white/5 rounded-xl border border-white/5">
+                              No completed rounds yet.
+                            </div>
+                          ) : (
+                            rounds.map((round, rIdx) => {
+                              const lineup = round.lineups[editingTeam.id];
+                              if (!lineup) return null;
+
+                              const roundScore = calculateRoundScore(
+                                round.matchIds,
+                                lineup,
+                                lineup.activeChip,
+                                lineup.chipNomination,
+                                editingTeam,
+                                matchResults,
+                                matchDetails,
+                                matchSubmissionTimes
+                              );
+
+                              const chipIcons = {
+                                flexi: <Medal size={10} />,
+                                bat: <Activity size={10} />,
+                                bowl: <Zap size={10} />,
+                                pom: <Star size={10} />,
+                                converter: <RefreshCw size={10} />
+                              };
+
+                              return (
+                                <div key={rIdx} className="bg-white/5 border border-white/5 rounded-xl p-3 flex justify-between items-center group/round hover:bg-white/10 transition-all">
+                                  <div className="flex flex-col">
+                                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-tighter">Round {rIdx + 1}</span>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      {lineup.activeChip ? (
+                                        <>
+                                          <span className="text-indigo-400">{chipIcons[lineup.activeChip]}</span>
+                                          <span className="text-[10px] font-bold text-slate-300 uppercase">{lineup.activeChip}</span>
+                                        </>
+                                      ) : (
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase">Standard</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-sm font-mono font-black text-white">{roundScore}</span>
+                                    <span className="text-[8px] font-black text-slate-500 uppercase block leading-none">Pts Earned</span>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+
+
                     </div>
                   </div>
                 </div>
