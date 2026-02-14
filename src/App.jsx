@@ -147,6 +147,62 @@ const getRole = (playerName) => {
   return "AR";
 };
 
+// --- SHARED SCORING HELPER ---
+const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, team, matchResults, matchDetails, matchSubmissionTimes) => {
+  const playerStats = {};
+
+  roundMatchIds.forEach(mId => {
+    const mPoints = matchResults[mId] || {};
+    const mPom = matchDetails[mId]?.pom;
+
+    team.players.forEach(p => {
+      const pName = p.name;
+      const isInXI = lineup.playingXINames.includes(pName);
+      if (isInXI) {
+        const rawPoints = Number(mPoints[pName] || 0);
+        if (!playerStats[pName]) playerStats[pName] = { points: 0, matches: 0, wonPom: false, role: getRole(pName) };
+        playerStats[pName].points += rawPoints;
+
+        if (matchSubmissionTimes[mId]) playerStats[pName].matches += 1;
+        if (mPom === pName) playerStats[pName].wonPom = true;
+      }
+    });
+  });
+
+  // Determine Multipliers
+  let captain = lineup.captainName;
+  let viceCaptain = lineup.viceCaptainName;
+
+  if (activeChip === 'flexi') {
+    const sortedPlayers = Object.keys(playerStats).sort((a, b) => playerStats[b].points - playerStats[a].points);
+    if (sortedPlayers.length > 0) captain = sortedPlayers[0];
+    if (sortedPlayers.length > 1) viceCaptain = sortedPlayers[1];
+  }
+
+  let totalRoundPoints = 0;
+  Object.keys(playerStats).forEach(pName => {
+    const stats = playerStats[pName];
+    let capMult = 0;
+    if (pName === captain) capMult = 2;
+    else if (pName === viceCaptain) capMult = 1.5;
+
+    let chipMult = 0;
+    if ((activeChip === 'bat' && stats.role === 'BAT') || (activeChip === 'bowl' && stats.role === 'BOWL')) {
+      const avg = stats.matches > 0 ? (stats.points / stats.matches) : 0;
+      if (avg >= 100) chipMult = 2;
+    }
+    if (activeChip === 'pom' && chipNomination === pName && stats.wonPom) chipMult = 3;
+
+    const totalMult = capMult + chipMult;
+    if (totalMult === 0) {
+      totalRoundPoints += stats.points;
+    } else {
+      totalRoundPoints += (stats.points * totalMult);
+    }
+  });
+  return totalRoundPoints;
+};
+
 export default function App() {
   // const [user, setUser] = useState(null); // REMOVED
 
@@ -314,51 +370,23 @@ export default function App() {
     let totalScore = 0;
     const assignedMatchIds = rounds.flatMap(r => r.matchIds);
 
-    // 1. Processed Matches from Past Rounds
+    // 1. Past Rounds
     rounds.forEach(round => {
       const lineup = round.lineups[team.id];
       if (lineup) {
-        round.matchIds.forEach(mId => {
-          const mPoints = matchResults[mId] || {};
-          team.players.forEach(p => {
-            if (lineup.playingXINames.includes(p.name)) {
-              const points = Number(mPoints[p.name] || 0);
-              let mult = 1;
-              if (p.name === lineup.captainName) mult = 2;
-              else if (p.name === lineup.viceCaptainName) mult = 1.5;
-              totalScore += (points * mult);
-            }
-          });
-        });
+        totalScore += calculateRoundScore(round.matchIds, lineup, lineup.activeChip, lineup.chipNomination, team, matchResults, matchDetails, matchSubmissionTimes);
       }
     });
 
-    // 2. Processed Matches NOT in Past Rounds
+    // 2. Pending Matches (Live Projection)
     const pendingMatchIds = processedMatchIds.filter(id => !assignedMatchIds.includes(id));
-
     if (pendingMatchIds.length > 0) {
       let lineup = team;
-      // If locked, try to find snapshot
       if (isLineupLocked) {
-        const reversedHistory = [...lineupHistory].reverse();
-        const lastLock = reversedHistory.find(e => e.type === 'LOCK');
-        if (lastLock && lastLock.lineups && lastLock.lineups[team.id]) {
-          lineup = lastLock.lineups[team.id];
-        }
+        const lastLock = [...lineupHistory].reverse().find(e => e.type === 'LOCK');
+        if (lastLock?.lineups?.[team.id]) lineup = lastLock.lineups[team.id];
       }
-
-      pendingMatchIds.forEach(mId => {
-        const mPoints = matchResults[mId] || {};
-        team.players.forEach(p => {
-          if (lineup.playingXINames.includes(p.name)) {
-            const points = Number(mPoints[p.name] || 0);
-            let mult = 1;
-            if (p.name === lineup.captainName) mult = 2;
-            else if (p.name === lineup.viceCaptainName) mult = 1.5;
-            totalScore += (points * mult);
-          }
-        });
-      });
+      totalScore += calculateRoundScore(pendingMatchIds, lineup, lineup.activeChip, lineup.chipNomination, team, matchResults, matchDetails, matchSubmissionTimes);
     }
 
     return totalScore;
@@ -485,6 +513,7 @@ export default function App() {
     // 1. Find the last LOCK event to see when this round started
     const reversedHistory = [...lineupHistory].reverse();
     const lastLock = reversedHistory.find(e => e.type === 'LOCK');
+    const flexiUpdates = {};
 
     // Archive the unlock event
     const unlockEvent = {
@@ -523,12 +552,43 @@ export default function App() {
         return true;
       }).map(m => m.id);
 
+
       if (matchesInRound.length > 0) {
+        // --- 3. FLEXI CAP PRE-PROCESSING ---
+        // Iterate through lastLock lineups to auto-assign C/VC for Flexi Cap users
+        // BEFORE creating the round snapshot
+        Object.keys(lastLock.lineups).forEach(tId => {
+          const lineup = lastLock.lineups[tId];
+          if (lineup.activeChip === 'flexi') {
+            const pStats = {};
+            matchesInRound.forEach(mId => {
+              const mPoints = matchResults[mId] || {};
+              lineup.playingXINames.forEach(pName => {
+                const pts = Number(mPoints[pName] || 0);
+                pStats[pName] = (pStats[pName] || 0) + pts;
+              });
+            });
+
+            // Sort by points desc
+            const sorted = Object.keys(pStats).sort((a, b) => pStats[b] - pStats[a]);
+
+            if (sorted.length > 0) {
+              lineup.captainName = sorted[0];
+              lineup.viceCaptainName = sorted.length > 1 ? sorted[1] : "";
+
+              flexiUpdates[tId] = {
+                captainName: lineup.captainName,
+                viceCaptainName: lineup.viceCaptainName
+              };
+            }
+          }
+        });
+
         const newRound = {
           id: `round_${Date.now()}`,
           timestamp: new Date().toISOString(),
           matchIds: matchesInRound,
-          lineups: lastLock.lineups // The lineups that were locked for this period
+          lineups: lastLock.lineups // The lineups that we potentially just modified above
         };
         updatedRounds.push(newRound);
       }
@@ -538,79 +598,8 @@ export default function App() {
     // We need to recalculate ALL scores for ALL teams based on the rounds history + current round (if any matches just happened)
     // Actually, simply iterating through 'updatedRounds' is enough because we just added the new round to it.
 
-    // Helper to calculate score for a specific round/lineup
-    const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, team) => {
-      const playerStats = {};
-
-      roundMatchIds.forEach(mId => {
-        const mPoints = matchResults[mId] || {};
-        const mPom = matchDetails[mId]?.pom;
-
-        team.players.forEach(p => {
-          const pName = p.name;
-          const isInXI = lineup.playingXINames.includes(pName);
-          if (isInXI) {
-            const rawPoints = Number(mPoints[pName] || 0);
-            if (!playerStats[pName]) playerStats[pName] = { points: 0, matches: 0, wonPom: false, role: getRole(pName) };
-            playerStats[pName].points += rawPoints;
-
-            // Count match only if there was a result
-            if (matchSubmissionTimes[mId]) playerStats[pName].matches += 1;
-            if (mPom === pName) playerStats[pName].wonPom = true;
-          }
-        });
-      });
-
-      // Determine Multipliers
-      let captain = lineup.captainName;
-      let viceCaptain = lineup.viceCaptainName;
-
-      if (activeChip === 'flexi') {
-        const sortedPlayers = Object.keys(playerStats).sort((a, b) => playerStats[b].points - playerStats[a].points);
-        if (sortedPlayers.length > 0) captain = sortedPlayers[0];
-        if (sortedPlayers.length > 1) viceCaptain = sortedPlayers[1];
-      }
-
-      let totalRoundPoints = 0;
-      Object.keys(playerStats).forEach(pName => {
-        const stats = playerStats[pName];
-        // Captaincy Multiplier
-        let capMult = 1;
-        if (pName === captain) capMult = 2;
-        else if (pName === viceCaptain) capMult = 1.5;
-        // NOTE: We don't apply capMult yet if we want additive logic with chips.
-        // User Request: "if a specific player is vc and he gets batting boost then it should be his points * (1.5 + 2)"
-        // This implies: Total Multiplier = CapMult + ChipMult (if chip active)
-        // However, if NO chip is active, Total Multiplier = CapMult.
-        // If we strictly follow (CapMult + ChipMult), we must treat ChipMult as an ADDITIVE bonus (e.g. +200%? or +100%?)
-        // Let's interpret "Batting Boost" (2x) as adding a 2x multiplier value to the stack.
-        // Normal: 1x.
-        // VC + Boost: 1.5 + 2 = 3.5x.
-        // Cap + Boost: 2 + 2 = 4x.
-        // Normal + Boost: 1 + 2 = 3x.
-
-        let chipMult = 0; // Default 0 if not active
-
-        // Bat/Bowl Boost: Condition avg >= 100
-        if ((activeChip === 'bat' && stats.role === 'BAT') || (activeChip === 'bowl' && stats.role === 'BOWL')) {
-          const avg = stats.matches > 0 ? (stats.points / stats.matches) : 0;
-          if (avg >= 100) {
-            chipMult = 2;
-          }
-        }
-
-        // POM Boost: Condition wonPom
-        if (activeChip === 'pom' && chipNomination === pName && stats.wonPom) {
-          chipMult = 3;
-        }
-
-        // Final Calculation: Points * (CapMult + ChipMult)
-        // If chipMult is 0, it's just Points * CapMult.
-        // If chipMult is 2 (Boost), it's Points * (CapMult + 2).
-        totalRoundPoints += (stats.points * (capMult + chipMult));
-      });
-      return totalRoundPoints;
-    };
+    // Help calculate score for a specific round/lineup
+    // (Function now moved to component level: calculateRoundScore)
 
     // Calculate Total Points for each team
     const updatedFantasyTeams = fantasyTeams.map(team => {
@@ -620,7 +609,7 @@ export default function App() {
       updatedRounds.forEach(round => {
         const lineup = round.lineups[team.id];
         if (lineup) {
-          totalScore += calculateRoundScore(round.matchIds, lineup, lineup.activeChip, lineup.chipNomination, team);
+          totalScore += calculateRoundScore(round.matchIds, lineup, lineup.activeChip, lineup.chipNomination, team, matchResults, matchDetails, matchSubmissionTimes);
         }
       });
 
@@ -653,6 +642,8 @@ export default function App() {
       return {
         ...team,
         points: totalScore,
+        captainName: flexiUpdates[team.id]?.captainName || team.captainName,
+        viceCaptainName: flexiUpdates[team.id]?.viceCaptainName || team.viceCaptainName,
         chips: newChips,
         activeChip: newActiveChip,
         chipNomination: newChipNomination
@@ -1273,8 +1264,9 @@ export default function App() {
           if (counts.AR < 1) errors.push("Min 1 AR");
           if (counts.BAT < 2) errors.push("Min 2 BAT");
           if (counts.BOWL < 2) errors.push("Min 2 BOWL");
-          if (!editingTeam.captainName) errors.push("Select Captain");
-          if (!editingTeam.viceCaptainName) errors.push("Select VC");
+          const isFlexi = editingTeam.activeChip === 'flexi';
+          if (!isFlexi && !editingTeam.captainName) errors.push("Select Captain");
+          if (!isFlexi && !editingTeam.viceCaptainName) errors.push("Select VC");
           const isValid = errors.length === 0;
 
           // --- Save Function ---
@@ -1310,6 +1302,9 @@ export default function App() {
                         {editingTeam.name}
                         {isLineupLocked && !isAdmin ? " - Read Only Mode" : " - Changes apply to NEXT match"}
                       </p>
+                      {editingTeam.activeChip === 'flexi' && (
+                        <span className="text-[10px] font-black uppercase text-yellow-400 bg-yellow-500/10 px-2 py-0.5 rounded border border-yellow-500/20">Flexi Cap Active: Auto-Assign C/VC</span>
+                      )}
                       <div className="bg-blue-500/20 px-3 py-1 rounded-full border border-blue-500/30">
                         <p className="text-[10px] font-black uppercase text-blue-300 tracking-wider">
                           Total Team Points: <span className="text-white text-sm">{editingTeam.points}</span>
@@ -1404,7 +1399,7 @@ export default function App() {
                                 </div>
                               </div>
                             </div>
-                            {isInXI && (!isLineupLocked || isAdmin) && (
+                            {isInXI && (!isLineupLocked || isAdmin) && editingTeam.activeChip !== 'flexi' && (
                               <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                                 <button onClick={() => setEditingTeam({ ...editingTeam, captainName: p.name, viceCaptainName: isVC ? "" : editingTeam.viceCaptainName })} className={`w-6 h-6 rounded text-[8px] font-black ${isCap ? 'bg-yellow-500 text-black' : 'bg-black/30 text-slate-500'}`}>C</button>
                                 <button onClick={() => setEditingTeam({ ...editingTeam, viceCaptainName: p.name, captainName: isCap ? "" : editingTeam.captainName })} className={`w-6 h-6 rounded text-[8px] font-black ${isVC ? 'bg-indigo-500 text-white' : 'bg-black/30 text-slate-500'}`}>VC</button>
