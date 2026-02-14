@@ -907,7 +907,7 @@ export default function App() {
                   <tr className="text-slate-500 text-[10px] font-black uppercase bg-black/20">
                     <th className="px-8 py-5">Rank</th>
                     <th className="px-8 py-5">Group</th>
-                    <th className="px-8 py-5 text-right">Tentative (No Chips)</th>
+                    <th className="px-8 py-5 text-right">Tentative </th>
                     <th className="px-8 py-5 text-right">Points</th>
                     <th className="px-8 py-5 text-center">My Team</th>
                   </tr>
