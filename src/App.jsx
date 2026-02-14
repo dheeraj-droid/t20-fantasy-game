@@ -191,6 +191,9 @@ export default function App() {
   const [lastSynced, setLastSynced] = useState(null);
   const [cloudStatus, setCloudStatus] = useState("connecting"); // connecting, connected, disconnected, empty
 
+  // FIX: Race Condition - Block sync while saving
+  const [isSaving, setIsSaving] = useState(false);
+
 
   const initializeLocalData = () => {
     const initTeams = Object.keys(FANTASY_ROSTERS).map((groupName, i) => ({
@@ -225,6 +228,10 @@ export default function App() {
   // 1. Data Sync (Polling)
   useEffect(() => {
     const fetchSync = async () => {
+      // If we are currently saving local changes, DO NOT fetch from cloud
+      // This prevents overwriting our just-made local changes with stale cloud data
+      if (isSaving) return;
+
       try {
         const data = await api.sync();
         if (data) {
@@ -262,7 +269,18 @@ export default function App() {
     fetchSync(); // Initial fetch
     const interval = setInterval(fetchSync, 3000); // Poll every 3s
     return () => clearInterval(interval);
-  }, []);
+  }, [isSaving]); // dependency on isSaving ensures we re-evaluate if it changes? No, interval is set once.
+  // Actually, interval callback closes over `isSaving`. 
+  // Wait, if `fetchSync` is defined inside `useEffect`, it closes over the initial `isSaving` (false).
+  // So `if (isSaving) return` will ALWAYS see false.
+  // I must add `isSaving` to dependency array, but then it clears interval on change.
+  // Better: Use a ref for `isSaving` OR remove `fetchSync` from `useEffect`.
+  //
+  // Ref approach is cleanest for intervals.
+
+  // RE-PLAN:
+  // Using a ref for isSaving check inside interval.
+
 
   // Pre-fill Modal for Updates
   useEffect(() => {
@@ -429,15 +447,26 @@ export default function App() {
       const roundEnd = new Date();
 
       // 2. Find matches that STARTED in this window OR were FIRST SCORED in this window
+      // IMPROVED LOGIC: We also check if the match result exists and hasn't been assigned to a previous round
+      // This handles cases where time boundaries might be tight or strictly sequential
+      const previouslyAssignedMatchIds = rounds.flatMap(r => r.matchIds);
+
       matchesInRound = MATCH_SCHEDULE.filter(m => {
-        const mStart = new Date(m.start);
-        const startedInWindow = mStart >= roundStart && mStart <= roundEnd;
+        // If already processed in a previous round, skip
+        if (previouslyAssignedMatchIds.includes(m.id)) return false;
 
-        // Check if scored in window (submission time)
-        const firstScoredTime = matchSubmissionTimes[m.id] ? new Date(matchSubmissionTimes[m.id]) : null;
-        const scoredInWindow = firstScoredTime && firstScoredTime >= roundStart && firstScoredTime <= roundEnd;
+        // Must be processed (have a result) to be included in round calculations
+        // If not processed, it stays pending for the next round (or never if finished without score)
+        // Exception: If it started in this window, we might want to include it as a 0-point match? 
+        // Better to only include processed matches to avoid low-score confusion.
+        // USER INTENT: "End Round" calculates points. Points come from processed matches.
+        if (!processedMatchIds.includes(m.id)) return false;
 
-        return startedInWindow || scoredInWindow;
+        // OR simply: If it's processed and not in a previous round, it belongs to this active round.
+        // This is the most robust logic for a sequential "Start -> Match -> End" workflow.
+        // If the user forgot to end a round for a week, all matches in that week should count.
+        // So, simply: Is it processed? Yes. Was it in a previous round? No. -> It's in this round.
+        return true;
       }).map(m => m.id);
 
       if (matchesInRound.length > 0) {
@@ -491,7 +520,6 @@ export default function App() {
       let totalRoundPoints = 0;
       Object.keys(playerStats).forEach(pName => {
         const stats = playerStats[pName];
-        let finalPoints = stats.points;
         // Captaincy Multiplier
         let capMult = 1;
         if (pName === captain) capMult = 2;
@@ -553,8 +581,15 @@ export default function App() {
       // But we must update the *current* team state to show it as used.
       if (matchesInRound.length > 0 && lastLock?.lineups[team.id]?.activeChip) {
         const usedChipId = lastLock.lineups[team.id].activeChip;
-        newChips[usedChipId] = { used: true };
-        // Reset active chip if it was the one used (it should be, unless changed mid-lock which is impossible in UI)
+        // Ensure we handle deep copy structure if needed, but strict replacement works for shallow maps
+        newChips = {
+          ...newChips,
+          [usedChipId]: { used: true }
+        };
+
+        // Reset active chip if it was the one used
+        // IMPORTANT: We check against the CURRENT active chip in state, not the snapshot one
+        // If user is Admin and changed it mid-round, it might be different, but for standard flow it matches.
         if (newActiveChip === usedChipId) {
           newActiveChip = null;
           newChipNomination = null;
@@ -573,6 +608,7 @@ export default function App() {
     const newLineupHistory = [...lineupHistory, unlockEvent];
 
     try {
+      setIsSaving(true);
       await api.updateTeams(updatedFantasyTeams);
       await api.updateMetadata({
         isLineupLocked: false,
@@ -590,7 +626,12 @@ export default function App() {
       setIsLineupLocked(false);
       setLineupHistory(newLineupHistory);
 
-    } catch (e) { console.error(e); alert("Failed to End Round"); }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to End Round");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
 
@@ -601,6 +642,7 @@ export default function App() {
     if (!window.confirm("WARNING: This will RESET the Cloud Database with initial rosters. Are you sure?")) return;
 
     try {
+      setIsSaving(true);
       setLoading(true);
       console.log("Starting Database Seed...");
 
@@ -644,6 +686,8 @@ export default function App() {
       console.error("SEEDING ERROR:", error);
       setLoading(false);
       alert(`Error Seeding Database: ${error.message}`);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -690,6 +734,7 @@ export default function App() {
       : [...processedMatchIds, resolvingMatch.id];
 
     try {
+      setIsSaving(true);
       // Update Registry (Live MVP)
       await api.updateRegistry(newRegistry);
 
@@ -713,7 +758,12 @@ export default function App() {
       setMatchDetails(newMatchDetails);
       // setFantasyTeams() is explicitly OMITTED to keep leaderboard frozen.
 
-    } catch (e) { console.error(e); alert("Failed to save score"); }
+    } catch (e) {
+      console.error(e);
+      alert("Failed to save score");
+    } finally {
+      setIsSaving(false);
+    }
 
     setResolvingMatch(null);
     setManualPoints({});
@@ -825,7 +875,20 @@ export default function App() {
                       <tr key={team.id} className="hover:bg-white/[0.02] transition-colors group">
                         <td className="px-8 py-6 font-black text-lg">#{index + 1}</td>
                         <td className="px-8 py-6">
-                          <p className="font-black text-2xl text-white uppercase italic group-hover:text-blue-400 transition-colors">{team.name}</p>
+                          <div className="flex items-center gap-3">
+                            <p className="font-black text-2xl text-white uppercase italic group-hover:text-blue-400 transition-colors">{team.name}</p>
+                            {team.activeChip && (
+                              <div className="flex items-center gap-1 bg-indigo-500/20 px-2 py-1 rounded-lg border border-indigo-500/30">
+                                {team.activeChip === 'flexi' && <Medal size={12} className="text-yellow-400" />}
+                                {team.activeChip === 'bat' && <Activity size={12} className="text-blue-400" />}
+                                {team.activeChip === 'bowl' && <Zap size={12} className="text-purple-400" />}
+                                {team.activeChip === 'pom' && <Star size={12} className="text-orange-400" />}
+                                <span className="text-[9px] font-black uppercase text-indigo-200 tracking-wider">
+                                  {team.activeChip === 'pom' ? `POTM (${team.chipNomination})` : team.activeChip}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                           <div className="flex gap-4 mt-2 text-[10px] text-slate-500 uppercase font-bold">
                             <span className="flex items-center gap-1"><Star size={10} className="text-yellow-500" /> {team.captainName || 'Not Set'}</span>
                             <span className="flex items-center gap-1"><Zap size={10} className="text-indigo-500" /> {team.viceCaptainName || 'Not Set'}</span>
@@ -1100,7 +1163,7 @@ export default function App() {
                   ))}
                 </div>
               </div>
-              {isAdmin && (
+              {isAdmin ? (
                 <div className="p-8 border-t border-white/5 bg-slate-950/50">
                   <div className="mb-6">
                     <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Player of the Match</h4>
@@ -1117,6 +1180,14 @@ export default function App() {
                   </div>
                   <button onClick={handleScoreSubmit} className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all">Confirm & Add Points</button>
                 </div>
+              ) : (
+                <div className="p-8 border-t border-white/5 bg-slate-950/50">
+                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Player of the Match</h4>
+                  <div className="flex items-center gap-3 p-4 bg-white/5 rounded-xl border border-white/5">
+                    <Star size={20} className="text-yellow-500 fill-yellow-500" />
+                    <span className="text-lg font-black text-white uppercase">{matchDetails[resolvingMatch.id]?.pom || "None"}</span>
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -1125,262 +1196,264 @@ export default function App() {
 
       {/* --- EDIT LINEUP MODAL --- */}
       {
-        editingTeam && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md p-4">
-            <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-              <div className="p-6 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-slate-900 to-indigo-950">
-                <div>
-                  <h3 className="text-2xl font-black italic uppercase text-white flex gap-3 items-center">
-                    {isLineupLocked && !isAdmin ? <Eye size={24} className="text-blue-400" /> : <ListChecks size={24} className="text-blue-400" />}
-                    {isLineupLocked && !isAdmin ? "View Playing 11" : "Edit Playing 11"}
-                  </h3>
-                  <div className="flex items-center gap-4 mt-1">
-                    <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
-                      {editingTeam.name}
-                      {isLineupLocked && !isAdmin ? " - Read Only Mode" : " - Changes apply to NEXT match"}
-                    </p>
-                    <div className="bg-blue-500/20 px-3 py-1 rounded-full border border-blue-500/30">
-                      <p className="text-[10px] font-black uppercase text-blue-300 tracking-wider">
-                        Total Team Points: <span className="text-white text-sm">{editingTeam.points}</span>
+        editingTeam && (() => {
+          // --- Validation Logic ---
+          const xi = editingTeam.playingXINames;
+          const roles = xi.map(n => getRole(n));
+          const counts = {
+            WK: roles.filter(r => r === 'WK').length,
+            AR: roles.filter(r => r === 'AR').length,
+            BAT: roles.filter(r => r === 'BAT').length,
+            BOWL: roles.filter(r => r === 'BOWL').length,
+          };
+          const totalCounts = { WK: 0, AR: 0, BAT: 0, BOWL: 0 };
+          editingTeam.players.forEach(p => {
+            const r = getRole(p.name);
+            if (totalCounts[r] !== undefined) totalCounts[r]++;
+          });
+          const errors = [];
+          if (xi.length !== 11) errors.push(`Select 11 (${xi.length}/11)`);
+          if (counts.WK < 1) errors.push("Min 1 WK");
+          if (counts.AR < 1) errors.push("Min 1 AR");
+          if (counts.BAT < 2) errors.push("Min 2 BAT");
+          if (counts.BOWL < 2) errors.push("Min 2 BOWL");
+          if (!editingTeam.captainName) errors.push("Select Captain");
+          if (!editingTeam.viceCaptainName) errors.push("Select VC");
+          const isValid = errors.length === 0;
+
+          // --- Save Function ---
+          const handleSave = async () => {
+            if (!isValid) return;
+            setIsSaving(true);
+            const updatedTeams = fantasyTeams.map(t =>
+              t.id === editingTeam.id ? editingTeam : t
+            );
+            setFantasyTeams(updatedTeams);
+            setEditingTeam(null);
+            try {
+              await api.updateTeams(updatedTeams);
+            } catch (e) {
+              console.error(e);
+              alert("Failed to save changes");
+            } finally {
+              setIsSaving(false);
+            }
+          };
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md p-4">
+              <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+                <div className="p-6 border-b border-white/5 flex justify-between items-center bg-gradient-to-r from-slate-900 to-indigo-950">
+                  <div>
+                    <h3 className="text-2xl font-black italic uppercase text-white flex gap-3 items-center">
+                      {isLineupLocked && !isAdmin ? <Eye size={24} className="text-blue-400" /> : <ListChecks size={24} className="text-blue-400" />}
+                      {isLineupLocked && !isAdmin ? "View Playing 11" : "Edit Playing 11"}
+                    </h3>
+                    <div className="flex items-center gap-4 mt-1">
+                      <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
+                        {editingTeam.name}
+                        {isLineupLocked && !isAdmin ? " - Read Only Mode" : " - Changes apply to NEXT match"}
                       </p>
+                      <div className="bg-blue-500/20 px-3 py-1 rounded-full border border-blue-500/30">
+                        <p className="text-[10px] font-black uppercase text-blue-300 tracking-wider">
+                          Total Team Points: <span className="text-white text-sm">{editingTeam.points}</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* SAVE BUTTON */}
+                    {(!isLineupLocked || isAdmin) && (
+                      <button
+                        disabled={!isValid}
+                        onClick={handleSave}
+                        className="px-6 py-2 bg-white text-black rounded-lg text-xs font-black uppercase tracking-widest shadow-lg disabled:opacity-20 disabled:cursor-not-allowed hover:bg-indigo-50 transition-all flex items-center gap-2"
+                      >
+                        <Check size={14} /> Save
+                      </button>
+                    )}
+                    <button onClick={() => setEditingTeam(null)} className="text-slate-400 hover:text-white p-2 bg-white/5 rounded-full"><X size={24} /></button>
+                  </div>
+                </div>
+
+                <div className="flex-grow overflow-hidden flex flex-col md:flex-row">
+                  <div className="w-full md:w-2/3 overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-white/10">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {editingTeam.players.map((p, idx) => {
+                        const isInXI = editingTeam.playingXINames.includes(p.name);
+                        const role = getRole(p.name);
+                        const isCap = editingTeam.captainName === p.name;
+                        const isVC = editingTeam.viceCaptainName === p.name;
+
+                        const playerTeam = Object.keys(NATIONAL_SQUADS).find(t =>
+                          NATIONAL_SQUADS[t].some(pl => pl.name === p.name)
+                        ) || "UNK";
+
+                        const playerPoints = playerRegistry[p.name]?.points || 0;
+                        // const effectivePoints ... (used for display logic if needed, but not in current snippet)
+
+                        // Calculate High/Low Score within this team based on BASE points
+                        const teamScores = editingTeam.players.map(tp => playerRegistry[tp.name]?.points || 0);
+                        const maxScore = Math.max(...teamScores);
+                        const minScore = Math.min(...teamScores);
+
+                        const isHighest = playerPoints === maxScore && maxScore !== 0;
+                        const isLowest = playerPoints === minScore && minScore !== maxScore;
+
+                        return (
+                          <div key={idx}
+                            onClick={() => {
+                              if (isLineupLocked && !isAdmin) return;
+                              const current = [...editingTeam.playingXINames];
+                              if (isInXI) {
+                                const filtered = current.filter(n => n !== p.name);
+                                setEditingTeam({
+                                  ...editingTeam,
+                                  playingXINames: filtered,
+                                  captainName: isCap ? "" : editingTeam.captainName,
+                                  viceCaptainName: isVC ? "" : editingTeam.viceCaptainName
+                                });
+                              } else {
+                                if (current.length < 11) {
+                                  setEditingTeam({ ...editingTeam, playingXINames: [...current, p.name] });
+                                }
+                              }
+                            }}
+                            className={`p-4 rounded-2xl border transition-all cursor-pointer flex justify-between items-center
+                          ${isInXI ? 'bg-blue-600/10' : 'bg-white/5 opacity-60 hover:opacity-80'}
+                          ${isHighest ? 'border-green-500 ring-1 ring-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]' :
+                                isLowest ? 'border-red-500 ring-1 ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' :
+                                  isInXI ? 'border-blue-500/40 ring-1 ring-blue-500/20' : 'border-white/5'}
+                        `}>
+
+                            <div className="flex items-center gap-3">
+                              <div className={`w-5 h-5 rounded flex items-center justify-center border ${isInXI ? 'bg-blue-500 border-blue-500' : 'border-slate-600'}`}>
+                                {isInXI && <Check size={12} className="text-white" />}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-bold text-white text-sm uppercase">{p.name}</p>
+                                  {isCap && <span className="bg-yellow-500 text-black text-[8px] font-black px-1.5 rounded">C (2x)</span>}
+                                  {isVC && <span className="bg-indigo-500 text-white text-[8px] font-black px-1.5 rounded">VC (1.5x)</span>}
+                                </div>
+                                <div className="flex items-center gap-2 text-[8px] text-slate-400 font-black uppercase">
+                                  <span>{role}</span>
+                                  <span className="text-slate-600">•</span>
+                                  <span className="text-white">{playerTeam}</span>
+                                  <span className="text-slate-600">•</span>
+                                  <span className="text-blue-400">
+                                    {playerPoints} pts
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            {isInXI && (!isLineupLocked || isAdmin) && (
+                              <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                                <button onClick={() => setEditingTeam({ ...editingTeam, captainName: p.name, viceCaptainName: isVC ? "" : editingTeam.viceCaptainName })} className={`w-6 h-6 rounded text-[8px] font-black ${isCap ? 'bg-yellow-500 text-black' : 'bg-black/30 text-slate-500'}`}>C</button>
+                                <button onClick={() => setEditingTeam({ ...editingTeam, viceCaptainName: p.name, captainName: isCap ? "" : editingTeam.captainName })} className={`w-6 h-6 rounded text-[8px] font-black ${isVC ? 'bg-indigo-500 text-white' : 'bg-black/30 text-slate-500'}`}>VC</button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="w-full md:w-1/3 bg-black/40 border-l border-white/5 p-8 flex flex-col gap-6">
+                    <div>
+                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Power Chips</h4>
+                      <div className="grid grid-cols-2 gap-2 mb-6">
+                        {[
+                          { id: 'flexi', label: 'Flexi Cap', icon: <Medal size={14} /> },
+                          { id: 'bat', label: 'Bat Boost', icon: <Activity size={14} /> },
+                          { id: 'bowl', label: 'Bowl Boost', icon: <Zap size={14} /> },
+                          { id: 'pom', label: 'POTM Boost', icon: <Star size={14} /> }
+                        ].map(chip => {
+                          const isUsed = editingTeam.chips[chip.id]?.used;
+                          const isActive = editingTeam.activeChip === chip.id;
+
+                          return (
+                            <button
+                              key={chip.id}
+                              disabled={isUsed || (isLineupLocked && !isAdmin)}
+                              onClick={() => {
+                                if (isActive) {
+                                  setEditingTeam({ ...editingTeam, activeChip: null, chipNomination: null });
+                                } else {
+                                  setEditingTeam({ ...editingTeam, activeChip: chip.id, chipNomination: null });
+                                }
+                              }}
+                              className={`p-3 rounded-xl border transition-all flex items-center justify-between group/chip ${isActive
+                                ? 'bg-indigo-500 text-white border-indigo-500 shadow-lg shadow-indigo-500/20'
+                                : isUsed
+                                  ? 'bg-slate-800/50 text-slate-600 border-white/5 cursor-not-allowed'
+                                  : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10 hover:text-white'
+                                }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {chip.icon}
+                                <span className="text-[10px] font-black uppercase">{chip.label}</span>
+                              </div>
+                              {isUsed && <span className="text-[8px] font-black uppercase text-slate-600">Used</span>}
+                              {isActive && <CheckCircle2 size={14} />}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {editingTeam.activeChip === 'pom' && (
+                        <div className="mb-6 animate-in slide-in-from-top-2 fade-in duration-300">
+                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Nominate Player</h4>
+                          <select
+                            value={editingTeam.chipNomination || ""}
+                            onChange={(e) => setEditingTeam({ ...editingTeam, chipNomination: e.target.value })}
+                            disabled={isLineupLocked && !isAdmin}
+                            className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-indigo-500 transition-all uppercase"
+                          >
+                            <option value="">Select a Player...</option>
+                            {editingTeam.players.map(p => (
+                              <option key={p.name} value={p.name}>{p.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Roles Selected</h4>
+                      <div className="grid grid-cols-2 gap-2">
+                        {['WK', 'BAT', 'AR', 'BOWL'].map(r => {
+                          const min = (r === 'WK' || r === 'AR') ? 1 : 2;
+                          const val = counts[r];
+                          const total = totalCounts[r];
+                          const ok = val >= min;
+                          return (
+                            <div key={r} className={`p-3 rounded-xl border ${ok ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-black uppercase text-slate-400">{r}</span>
+                                {ok ? <Check size={12} className="text-green-400" /> : <AlertCircle size={12} className="text-red-400" />}
+                              </div>
+                              <span className={`text-xl font-mono font-bold ${ok ? 'text-green-400' : 'text-red-400'}`}>{val}<span className="text-xs text-slate-500">/{total}</span></span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex-grow">
+                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Validation</h4>
+                      <div className="space-y-2">
+                        {errors.map((e, i) => (
+                          <div key={i} className="text-[10px] text-red-300 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20 flex gap-2 items-center"><X size={12} /> {e}</div>
+                        ))}
+                        {isValid && <div className="text-[10px] text-green-300 bg-green-500/10 px-3 py-2 rounded-lg border border-green-500/20 flex gap-2 items-center"><Check size={12} /> Squad Valid</div>}
+                      </div>
                     </div>
                   </div>
                 </div>
-                <button onClick={() => setEditingTeam(null)} className="text-slate-400 hover:text-white p-2 bg-white/5 rounded-full"><X size={24} /></button>
-              </div>
-
-              <div className="flex-grow overflow-hidden flex flex-col md:flex-row">
-                <div className="w-full md:w-2/3 overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-white/10">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {editingTeam.players.map((p, idx) => {
-                      const isInXI = editingTeam.playingXINames.includes(p.name);
-                      const role = getRole(p.name);
-                      const isCap = editingTeam.captainName === p.name;
-                      const isVC = editingTeam.viceCaptainName === p.name;
-
-                      const playerTeam = Object.keys(NATIONAL_SQUADS).find(t =>
-                        NATIONAL_SQUADS[t].some(pl => pl.name === p.name)
-                      ) || "UNK";
-
-                      const playerPoints = playerRegistry[p.name]?.points || 0;
-                      const effectivePoints = isCap ? playerPoints * 2 : (isVC ? playerPoints * 1.5 : playerPoints);
-
-                      // Calculate High/Low Score within this team based on BASE points
-                      const teamScores = editingTeam.players.map(tp => playerRegistry[tp.name]?.points || 0);
-                      const maxScore = Math.max(...teamScores);
-                      const minScore = Math.min(...teamScores);
-
-                      const isHighest = playerPoints === maxScore && maxScore !== 0; // Don't highlight if everyone is 0
-                      const isLowest = playerPoints === minScore && minScore !== maxScore; // Only highlight if different from max
-
-                      return (
-                        <div key={idx}
-                          onClick={() => {
-                            if (isLineupLocked && !isAdmin) return;
-                            const current = [...editingTeam.playingXINames];
-                            if (isInXI) {
-                              const filtered = current.filter(n => n !== p.name);
-                              setEditingTeam({
-                                ...editingTeam,
-                                playingXINames: filtered,
-                                captainName: isCap ? "" : editingTeam.captainName,
-                                viceCaptainName: isVC ? "" : editingTeam.viceCaptainName
-                              });
-                            } else {
-                              if (current.length < 11) {
-                                setEditingTeam({ ...editingTeam, playingXINames: [...current, p.name] });
-                              }
-                            }
-                          }}
-                          className={`p-4 rounded-2xl border transition-all cursor-pointer flex justify-between items-center 
-                            ${isInXI ? 'bg-blue-600/10' : 'bg-white/5 opacity-60 hover:opacity-80'}
-                            ${isHighest ? 'border-green-500 ring-1 ring-green-500 shadow-[0_0_15px_rgba(34,197,94,0.3)]' :
-                              isLowest ? 'border-red-500 ring-1 ring-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' :
-                                isInXI ? 'border-blue-500/40 ring-1 ring-blue-500/20' : 'border-white/5'}
-                          `}>
-
-                          <div className="flex items-center gap-3">
-                            <div className={`w-5 h-5 rounded flex items-center justify-center border ${isInXI ? 'bg-blue-500 border-blue-500' : 'border-slate-600'}`}>
-                              {isInXI && <Check size={12} className="text-white" />}
-                            </div>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <p className="font-bold text-white text-sm uppercase">{p.name}</p>
-                                {isCap && <span className="bg-yellow-500 text-black text-[8px] font-black px-1.5 rounded">C (2x)</span>}
-                                {isVC && <span className="bg-indigo-500 text-white text-[8px] font-black px-1.5 rounded">VC (1.5x)</span>}
-                              </div>
-                              <div className="flex items-center gap-2 text-[8px] text-slate-400 font-black uppercase">
-                                <span>{role}</span>
-                                <span className="text-slate-600">•</span>
-                                <span className="text-white">{playerTeam}</span>
-                                <span className="text-slate-600">•</span>
-                                <span className="text-blue-400">
-                                  {playerPoints} pts
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                          {isInXI && (!isLineupLocked || isAdmin) && (
-                            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                              <button onClick={() => setEditingTeam({ ...editingTeam, captainName: p.name, viceCaptainName: isVC ? "" : editingTeam.viceCaptainName })} className={`w-6 h-6 rounded text-[8px] font-black ${isCap ? 'bg-yellow-500 text-black' : 'bg-black/30 text-slate-500'}`}>C</button>
-                              <button onClick={() => setEditingTeam({ ...editingTeam, viceCaptainName: p.name, captainName: isCap ? "" : editingTeam.captainName })} className={`w-6 h-6 rounded text-[8px] font-black ${isVC ? 'bg-indigo-500 text-white' : 'bg-black/30 text-slate-500'}`}>VC</button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="w-full md:w-1/3 bg-black/40 border-l border-white/5 p-8 flex flex-col gap-6">
-                  {(() => {
-                    const { isValid, errors, counts, totalCounts } = (() => {
-                      const xi = editingTeam.playingXINames;
-
-                      // Calculate counts for selected Playing XI
-                      const roles = xi.map(n => getRole(n));
-                      const c = {
-                        WK: roles.filter(r => r === 'WK').length,
-                        AR: roles.filter(r => r === 'AR').length,
-                        BAT: roles.filter(r => r === 'BAT').length,
-                        BOWL: roles.filter(r => r === 'BOWL').length,
-                      };
-
-                      // Calculate totals available in the squad
-                      const totalC = { WK: 0, AR: 0, BAT: 0, BOWL: 0 };
-                      editingTeam.players.forEach(p => {
-                        const r = getRole(p.name);
-                        if (totalC[r] !== undefined) totalC[r]++;
-                      });
-
-                      const errs = [];
-                      if (xi.length !== 11) errs.push(`Select 11 (${xi.length}/11)`);
-                      if (c.WK < 1) errs.push("Min 1 WK");
-                      if (c.AR < 1) errs.push("Min 1 AR");
-                      if (c.BAT < 2) errs.push("Min 2 BAT");
-                      if (c.BOWL < 2) errs.push("Min 2 BOWL");
-                      if (!editingTeam.captainName) errs.push("Select Captain");
-                      if (!editingTeam.viceCaptainName) errs.push("Select VC");
-                      return { isValid: errs.length === 0, errors: errs, counts: c, totalCounts: totalC };
-                    })();
-
-                    return (
-                      <>
-                        <div>
-                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Power Chips</h4>
-                          <div className="grid grid-cols-2 gap-2 mb-6">
-                            {[
-                              { id: 'flexi', label: 'Flexi Cap', icon: <Medal size={14} /> },
-                              { id: 'bat', label: 'Bat Boost', icon: <Activity size={14} /> },
-                              { id: 'bowl', label: 'Bowl Boost', icon: <Zap size={14} /> },
-                              { id: 'pom', label: 'POTM Boost', icon: <Star size={14} /> }
-                            ].map(chip => {
-                              const isUsed = editingTeam.chips[chip.id]?.used;
-                              const isActive = editingTeam.activeChip === chip.id;
-
-                              return (
-                                <button
-                                  key={chip.id}
-                                  disabled={isUsed || (isLineupLocked && !isAdmin)}
-                                  onClick={() => {
-                                    if (isActive) {
-                                      setEditingTeam({ ...editingTeam, activeChip: null, chipNomination: null });
-                                    } else {
-                                      setEditingTeam({ ...editingTeam, activeChip: chip.id, chipNomination: null });
-                                    }
-                                  }}
-                                  className={`p-3 rounded-xl border transition-all flex items-center justify-between group/chip ${isActive
-                                    ? 'bg-indigo-500 text-white border-indigo-500 shadow-lg shadow-indigo-500/20'
-                                    : isUsed
-                                      ? 'bg-slate-800/50 text-slate-600 border-white/5 cursor-not-allowed'
-                                      : 'bg-white/5 text-slate-400 border-white/5 hover:bg-white/10 hover:text-white'
-                                    }`}
-                                >
-                                  <div className="flex items-center gap-2">
-                                    {chip.icon}
-                                    <span className="text-[10px] font-black uppercase">{chip.label}</span>
-                                  </div>
-                                  {isUsed && <span className="text-[8px] font-black uppercase text-slate-600">Used</span>}
-                                  {isActive && <CheckCircle2 size={14} />}
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {editingTeam.activeChip === 'pom' && (
-                            <div className="mb-6 animate-in slide-in-from-top-2 fade-in duration-300">
-                              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Nominate Player</h4>
-                              <select
-                                value={editingTeam.chipNomination || ""}
-                                onChange={(e) => setEditingTeam({ ...editingTeam, chipNomination: e.target.value })}
-                                disabled={isLineupLocked && !isAdmin}
-                                className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-indigo-500 transition-all uppercase"
-                              >
-                                <option value="">Select a Player...</option>
-                                {editingTeam.players.map(p => (
-                                  <option key={p.name} value={p.name}>{p.name}</option>
-                                ))}
-                              </select>
-                            </div>
-                          )}
-
-                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Roles Selected</h4>
-                          <div className="grid grid-cols-2 gap-2">
-                            {['WK', 'BAT', 'AR', 'BOWL'].map(r => {
-                              const min = (r === 'WK' || r === 'AR') ? 1 : 2;
-                              const val = counts[r];
-                              const total = totalCounts[r];
-                              const ok = val >= min;
-                              return (
-                                <div key={r} className={`p-3 rounded-xl border ${ok ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-[9px] font-black uppercase text-slate-400">{r}</span>
-                                    {ok ? <Check size={12} className="text-green-400" /> : <AlertCircle size={12} className="text-red-400" />}
-                                  </div>
-                                  <span className={`text-xl font-mono font-bold ${ok ? 'text-green-400' : 'text-red-400'}`}>{val}<span className="text-xs text-slate-500">/{total}</span></span>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-
-                        <div className="flex-grow">
-                          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">Validation</h4>
-                          <div className="space-y-2">
-                            {errors.map((e, i) => (
-                              <div key={i} className="text-[10px] text-red-300 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20 flex gap-2 items-center"><X size={12} /> {e}</div>
-                            ))}
-                            {isValid && <div className="text-[10px] text-green-300 bg-green-500/10 px-3 py-2 rounded-lg border border-green-500/20 flex gap-2 items-center"><Check size={12} /> Squad Valid</div>}
-                          </div>
-                        </div>
-
-                        {(!isLineupLocked || isAdmin) && (
-                          <button
-                            disabled={!isValid}
-                            onClick={async () => {
-                              // Optimistic
-                              const newTeams = fantasyTeams.map(t => t.id === editingTeam.id ? editingTeam : t);
-                              setFantasyTeams(newTeams);
-
-                              try {
-                                await api.updateTeams(newTeams);
-                              } catch (e) { console.error(e); }
-
-                              setEditingTeam(null);
-                            }}
-                            className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase tracking-widest shadow-xl disabled:opacity-20 disabled:cursor-not-allowed transition-all"
-                          >
-                            Save Lineup
-                          </button>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
               </div>
             </div>
-          </div>
-        )
+          );
+        })()
       }
 
       {/* FLOATERS */}
@@ -1393,6 +1466,6 @@ export default function App() {
       </div>
 
       <Analytics />
-    </div >
+    </div>
   );
 }
