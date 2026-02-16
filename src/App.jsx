@@ -34,7 +34,7 @@ const NATIONAL_SQUADS = {
   "AUS": [
     { name: "Mitchell Marsh", role: "AR" }, { name: "Xavier Bartlett", role: "BOWL" }, { name: "Cooper Connolly", role: "AR" },
     { name: "Tim David", role: "BAT" }, { name: "Ben Dwarshuis", role: "BOWL" }, { name: "Cameron Green", role: "AR" },
-    { name: "Nathan Ellis", role: "BOWL" }, { name: "Josh Hazlewood", role: "BOWL" }, { name: "Travis Head", role: "BAT" },
+    { name: "Nathan Ellis", role: "BOWL" }, { name: "Steve Smith", role: "BAT" }, { name: "Travis Head", role: "BAT" },
     { name: "Josh Inglis", role: "WK" }, { name: "Matthew Kuhnemann", role: "BOWL" }, { name: "Glenn Maxwell", role: "AR" },
     { name: "Matt Renshaw", role: "BAT" }, { name: "Marcus Stoinis", role: "AR" }, { name: "Adam Zampa", role: "BOWL" }
   ],
