@@ -135,7 +135,22 @@ const MATCH_SCHEDULE = [
   { id: 37, teams: "West Indies vs Italy", countries: ["WI", "ITA"], start: "2026-02-19T11:00:00" },
   { id: 38, teams: "Sri Lanka vs Zimbabwe", countries: ["SL", "ZIM"], start: "2026-02-19T15:00:00" },
   { id: 39, teams: "Afghanistan vs Canada", countries: ["AFG", "CAN"], start: "2026-02-19T19:00:00" },
-  { id: 40, teams: "Australia vs Oman", countries: ["AUS", "OMA"], start: "2026-02-20T19:00:00" }
+  { id: 40, teams: "Australia vs Oman", countries: ["AUS", "OMA"], start: "2026-02-20T19:00:00" },
+  { id: 41, teams: "New Zealand vs Pakistan", countries: ["NZ", "PAK"], start: "2026-02-21T19:00:00" },
+  { id: 42, teams: "England vs Sri Lanka", countries: ["ENG", "SL"], start: "2026-02-22T15:00:00" },
+  { id: 43, teams: "India vs South Africa", countries: ["IND", "SA"], start: "2026-02-22T19:00:00" },
+  { id: 44, teams: "Zimbabwe vs West Indies", countries: ["ZIM", "WI"], start: "2026-02-23T19:00:00" },
+  { id: 45, teams: "England vs Pakistan", countries: ["ENG", "PAK"], start: "2026-02-24T19:00:00" },
+  { id: 46, teams: "New Zealand vs Sri Lanka", countries: ["NZ", "SL"], start: "2026-02-25T19:00:00" },
+  { id: 47, teams: "West Indies vs South Africa", countries: ["WI", "SA"], start: "2026-02-26T15:00:00" },
+  { id: 48, teams: "India vs Zimbabwe", countries: ["IND", "ZIM"], start: "2026-02-26T19:00:00" },
+  { id: 49, teams: "England vs New Zealand", countries: ["ENG", "NZ"], start: "2026-02-27T19:00:00" },
+  { id: 50, teams: "Pakistan vs Sri Lanka", countries: ["PAK", "SL"], start: "2026-02-28T19:00:00" },
+  { id: 51, teams: "Zimbabwe vs South Africa", countries: ["ZIM", "SA"], start: "2026-03-01T15:00:00" },
+  { id: 52, teams: "India vs West Indies", countries: ["IND", "WI"], start: "2026-03-01T19:00:00" },
+  { id: 53, teams: "Semi-final 1", countries: ["TBD", "TBD"], start: "2026-03-04T19:00:00" },
+  { id: 54, teams: "Semi-final 2", countries: ["TBD", "TBD"], start: "2026-03-05T19:00:00" },
+  { id: 55, teams: "Final", countries: ["TBD", "TBD"], start: "2026-03-08T19:00:00" }
 ];
 
 // Helper: Get Role
