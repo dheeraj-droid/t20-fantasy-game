@@ -148,8 +148,8 @@ const MATCH_SCHEDULE = [
   { id: 50, teams: "Pakistan vs Sri Lanka", countries: ["PAK", "SL"], start: "2026-02-28T19:00:00" },
   { id: 51, teams: "Zimbabwe vs South Africa", countries: ["ZIM", "SA"], start: "2026-03-01T15:00:00" },
   { id: 52, teams: "India vs West Indies", countries: ["IND", "WI"], start: "2026-03-01T19:00:00" },
-  { id: 53, teams: "Semi-final 1", countries: ["TBD", "TBD"], start: "2026-03-04T19:00:00" },
-  { id: 54, teams: "Semi-final 2", countries: ["TBD", "TBD"], start: "2026-03-05T19:00:00" },
+  { id: 53, teams: "Semi-final 1", countries: ["SA", "NZ"], start: "2026-03-04T19:00:00" },
+  { id: 54, teams: "Semi-final 2", countries: ["ENG", "IND"], start: "2026-03-05T19:00:00" },
   { id: 55, teams: "Final", countries: ["TBD", "TBD"], start: "2026-03-08T19:00:00" }
 ];
 
