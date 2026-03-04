@@ -10,7 +10,7 @@ import { Analytics } from "@vercel/analytics/react"
 
 // --- CONSTANTS ---
 const INITIAL_SYSTEM_TIME = new Date();
-const MATCH_DURATION_HOURS = 3.5;
+const MATCH_DURATION_HOURS = 3;
 const LOCAL_STORAGE_KEY_ROSTER = 'fantasy_roster_data';
 
 // ---------------------------------------------------------
@@ -150,7 +150,7 @@ const MATCH_SCHEDULE = [
   { id: 52, teams: "India vs West Indies", countries: ["IND", "WI"], start: "2026-03-01T19:00:00" },
   { id: 53, teams: "Semi-final 1", countries: ["SA", "NZ"], start: "2026-03-04T19:00:00" },
   { id: 54, teams: "Semi-final 2", countries: ["ENG", "IND"], start: "2026-03-05T19:00:00" },
-  { id: 55, teams: "Final", countries: ["TBD", "TBD"], start: "2026-03-08T19:00:00" }
+  { id: 55, teams: "Final", countries: ["NZ", "TBD"], start: "2026-03-08T19:00:00" }
 ];
 
 // Helper: Get Role
