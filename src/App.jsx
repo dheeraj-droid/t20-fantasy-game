@@ -14,152 +14,173 @@ const MATCH_DURATION_HOURS = 3;
 const LOCAL_STORAGE_KEY_ROSTER = 'fantasy_roster_data';
 
 // ---------------------------------------------------------
-// DATABASE 1: NATIONAL SQUADS (Admin Scoring)
+// DATABASE 1: SQUADS (Admin Scoring)
 // ---------------------------------------------------------
-const NATIONAL_SQUADS = {
-  "IND": [
-    { name: "Suryakumar Yadav", role: "BAT" }, { name: "Abhishek Sharma", role: "BAT" }, { name: "Tilak Varma", role: "BAT" },
-    { name: "Sanju Samson", role: "WK" }, { name: "Shivam Dube", role: "AR" }, { name: "Ishan Kishan", role: "WK" },
-    { name: "Hardik Pandya", role: "AR" }, { name: "Arshdeep Singh", role: "BOWL" }, { name: "Jasprit Bumrah", role: "BOWL" },
-    { name: "Mohd Siraj", role: "BOWL" }, { name: "Varun Chakaravarthy", role: "BOWL" }, { name: "Kuldeep Yadav", role: "BOWL" },
-    { name: "Axar Patel", role: "AR" }, { name: "Washington Sundar", role: "AR" }, { name: "Rinku Singh", role: "BAT" }
+const Squads = {
+  "CSK": [
+    { name: "MS Dhoni", role: "WK", isOverseas: false }, { name: "Sanju Samson", role: "WK", isOverseas: false }, { name: "Kartik Sharma", role: "WK", isOverseas: false }, { name: "Urvil Patel", role: "WK", isOverseas: false },
+    { name: "Jamie Overton", role: "BOWL", isOverseas: true }, { name: "Khaleel Ahmed", role: "BOWL", isOverseas: false }, { name: "Noor Ahmad", role: "BOWL", isOverseas: true }, { name: "Mukesh Choudhary", role: "BOWL", isOverseas: false }, { name: "Nathan Ellis", role: "BOWL", isOverseas: true }, { name: "Shreyas Gopal", role: "BOWL", isOverseas: false }, { name: "Gurjapneet Singh", role: "BOWL", isOverseas: false }, { name: "Akeal Hosein", role: "BOWL", isOverseas: true }, { name: "Matt Henry", role: "BOWL", isOverseas: true }, { name: "Rahul Chahar", role: "BOWL", isOverseas: false },
+    { name: "Ruturaj Gaikwad", role: "BAT", isOverseas: false }, { name: "Dewald Brevis", role: "BAT", isOverseas: true }, { name: "Ayush Mhatre", role: "BAT", isOverseas: false }, { name: "Sarfaraz Khan", role: "BAT", isOverseas: false },
+    { name: "Shivam Dube", role: "AR", isOverseas: false }, { name: "Anshul Kamboj", role: "AR", isOverseas: false }, { name: "Ramakrishna Ghosh", role: "AR", isOverseas: false }, { name: "Prashant Veer", role: "AR", isOverseas: false }, { name: "Matthew Short", role: "AR", isOverseas: true }, { name: "Aman Khan", role: "AR", isOverseas: false }, { name: "Zak Foulkes", role: "AR", isOverseas: true }
   ],
-  "PAK": [
-    { name: "Salman Agha", role: "AR" }, { name: "Abrar Ahmed", role: "BOWL" }, { name: "Babar Azam", role: "BAT" },
-    { name: "Faheem Ashraf", role: "AR" }, { name: "Fakhar Zaman", role: "BAT" }, { name: "Khawaja Nafay", role: "BAT" },
-    { name: "Mohammad Nawaz", role: "AR" }, { name: "Salman Mirza", role: "BOWL" }, { name: "Naseem Shah", role: "BOWL" },
-    { name: "Sahibzada Farhan", role: "WK" }, { name: "Saim Ayub", role: "AR" }, { name: "Shaheen Afridi", role: "BOWL" },
-    { name: "Shadab Khan", role: "AR" }, { name: "Usman Khan", role: "WK" }, { name: "Usman Tariq", role: "BOWL" }
+  "DC": [
+    { name: "KL Rahul", role: "WK", isOverseas: false }, { name: "Ben Duckett", role: "WK", isOverseas: true }, { name: "Abhishek Porel", role: "WK", isOverseas: false }, { name: "Tristan Stubbs", role: "WK", isOverseas: true },
+    { name: "Mitchell Starc", role: "BOWL", isOverseas: true }, { name: "Natarajan", role: "BOWL", isOverseas: false }, { name: "Mukesh Kumar", role: "BOWL", isOverseas: false }, { name: "Dushmantha Chameera", role: "BOWL", isOverseas: true }, { name: "Lungi Ngidi", role: "BOWL", isOverseas: true }, { name: "Kyle Jamieson", role: "BOWL", isOverseas: true }, { name: "Kuldeep Yadav", role: "BOWL", isOverseas: false },
+    { name: "Karun Nair", role: "BAT", isOverseas: false }, { name: "David Miller", role: "BAT", isOverseas: true }, { name: "Pathum Nissanka", role: "BAT", isOverseas: true }, { name: "Sahil Parakh", role: "BAT", isOverseas: false }, { name: "Prithvi Shaw", role: "BAT", isOverseas: false },
+    { name: "Axar Patel", role: "AR", isOverseas: false }, { name: "Sameer Rizvi", role: "AR", isOverseas: false }, { name: "Ashutosh Sharma", role: "AR", isOverseas: false }, { name: "Vipraj Nigam", role: "AR", isOverseas: false }, { name: "Ajay Mandal", role: "AR", isOverseas: false }, { name: "Tripurana Vijay", role: "AR", isOverseas: false }, { name: "Madhav Tiwari", role: "AR", isOverseas: false }, { name: "Auqib Dar", role: "AR", isOverseas: false }, { name: "Nitish Rana", role: "AR", isOverseas: false }
   ],
-  "AUS": [
-    { name: "Mitchell Marsh", role: "AR" }, { name: "Xavier Bartlett", role: "BOWL" }, { name: "Cooper Connolly", role: "AR" },
-    { name: "Tim David", role: "BAT" }, { name: "Ben Dwarshuis", role: "BOWL" }, { name: "Cameron Green", role: "AR" },
-    { name: "Nathan Ellis", role: "BOWL" }, { name: "Steve Smith", role: "BAT" }, { name: "Travis Head", role: "BAT" },
-    { name: "Josh Inglis", role: "WK" }, { name: "Matthew Kuhnemann", role: "BOWL" }, { name: "Glenn Maxwell", role: "AR" },
-    { name: "Matt Renshaw", role: "BAT" }, { name: "Marcus Stoinis", role: "AR" }, { name: "Adam Zampa", role: "BOWL" }
+  "GT": [
+    { name: "Jos Buttler", role: "WK", isOverseas: true }, { name: "Kumar Kushagra", role: "WK", isOverseas: false }, { name: "Anuj Rawat", role: "WK", isOverseas: false }, { name: "Tom Banton", role: "WK", isOverseas: true },
+    { name: "Kagiso Rabada", role: "BOWL", isOverseas: true }, { name: "Mohammed Siraj", role: "BOWL", isOverseas: false }, { name: "Prasidh Krishna", role: "BOWL", isOverseas: false }, { name: "Manav Suthar", role: "BOWL", isOverseas: false }, { name: "Gurnoor Singh Brar", role: "BOWL", isOverseas: false }, { name: "Ishant Sharma", role: "BOWL", isOverseas: false }, { name: "Ashok Sharma", role: "BOWL", isOverseas: false }, { name: "Prithvi Raj Yarra", role: "BOWL", isOverseas: false }, { name: "Luke Wood", role: "BOWL", isOverseas: true }, { name: "Rahul Tewatia", role: "BOWL", isOverseas: false }, { name: "Rashid Khan", role: "BOWL", isOverseas: true },
+    { name: "Shubman Gill", role: "BAT", isOverseas: false }, { name: "Glenn Phillips", role: "BAT", isOverseas: true },
+    { name: "Nishant Sindhu", role: "AR", isOverseas: false }, { name: "Washington Sundar", role: "AR", isOverseas: false }, { name: "Mohd. Arshad Khan", role: "AR", isOverseas: false }, { name: "Sai Kishore", role: "AR", isOverseas: false }, { name: "Jayant Yadav", role: "AR", isOverseas: false }, { name: "Jason Holder", role: "AR", isOverseas: true }, { name: "Sai Sudharsan", role: "AR", isOverseas: false }, { name: "Shahrukh Khan", role: "AR", isOverseas: false }
   ],
-  "SL": [
-    { name: "Dasun Shanaka", role: "AR" }, { name: "Pathum Nissanka", role: "BAT" }, { name: "Kamil Mishara", role: "BAT" },
-    { name: "Kusal Mendis", role: "WK" }, { name: "Kamindu Mendis", role: "AR" }, { name: "Kusal Janith Perera", role: "WK" },
-    { name: "Charith Asalanka", role: "BAT" }, { name: "Janith Liyanage", role: "BAT" }, { name: "Pavan Rathnayake", role: "BAT" },
-    { name: "Dushan Hemantha", role: "AR" }, { name: "Dunith Wellalage", role: "BOWL" }, { name: "Maheesh Theekshana", role: "BOWL" },
-    { name: "Dushmantha Chameera", role: "BOWL" }, { name: "Dilshan Madushanka", role: "BOWL" }, { name: "Pramod Madushan", role: "BOWL" }
+  "KKR": [
+    { name: "Finn Allen", role: "WK", isOverseas: true }, { name: "Tejasvi Singh", role: "WK", isOverseas: false }, { name: "Tim Seifert", role: "WK", isOverseas: true },
+    { name: "Vaibhav Arora", role: "BOWL", isOverseas: false }, { name: "Matheesha Pathirana", role: "BOWL", isOverseas: true }, { name: "Kartik Tyagi", role: "BOWL", isOverseas: false }, { name: "Prashant Solanki", role: "BOWL", isOverseas: false }, { name: "Akash Deep", role: "BOWL", isOverseas: false }, { name: "Harshit Rana", role: "BOWL", isOverseas: false }, { name: "Umran Malik", role: "BOWL", isOverseas: false }, { name: "Sunil Narine", role: "BOWL", isOverseas: true }, { name: "Varun Chakravarthy", role: "BOWL", isOverseas: false },
+    { name: "Ajinkya Rahane", role: "BAT", isOverseas: false }, { name: "Rinku Singh", role: "BAT", isOverseas: false }, { name: "Angkrish Raghuvanshi", role: "BAT", isOverseas: false }, { name: "Manish Pandey", role: "BAT", isOverseas: false }, { name: "Cameron Green", role: "BAT", isOverseas: true }, { name: "Rahul Tripathi", role: "BAT", isOverseas: false }, { name: "Rovman Powell", role: "BAT", isOverseas: true },
+    { name: "Anukul Roy", role: "AR", isOverseas: false }, { name: "Sarthak Ranjan", role: "AR", isOverseas: false }, { name: "Daksh Kamra", role: "AR", isOverseas: false }, { name: "Rachin Ravindra", role: "AR", isOverseas: true }, { name: "Ramandeep Singh", role: "AR", isOverseas: false }
   ],
-  "ENG": [
-    { name: "Harry Brook", role: "BAT" }, { name: "Rehan Ahmed", role: "AR" }, { name: "Jofra Archer", role: "BOWL" },
-    { name: "Tom Banton", role: "WK" }, { name: "Jacob Bethell", role: "AR" }, { name: "Jos Buttler", role: "WK" },
-    { name: "Sam Curran", role: "AR" }, { name: "Liam Dawson", role: "AR" }, { name: "Ben Duckett", role: "BAT" },
-    { name: "Will Jacks", role: "AR" }, { name: "Jamie Overton", role: "AR" }, { name: "Adil Rashid", role: "BOWL" },
-    { name: "Philip Salt", role: "WK" }, { name: "Josh Tongue", role: "BOWL" }, { name: "Luke Wood", role: "BOWL" }
+  "LSG": [
+    { name: "Nicholas Pooran", role: "WK", isOverseas: true }, { name: "Rishabh Pant", role: "WK", isOverseas: false }, { name: "Josh Inglis", role: "WK", isOverseas: true }, { name: "Mukul Choudhary", role: "WK", isOverseas: false },
+    { name: "Mohammad Shami", role: "BOWL", isOverseas: false }, { name: "Avesh Khan", role: "BOWL", isOverseas: false }, { name: "Mayank Yadav", role: "BOWL", isOverseas: false }, { name: "Anrich Nortje", role: "BOWL", isOverseas: true }, { name: "M. Siddharth", role: "BOWL", isOverseas: false }, { name: "Digvesh Singh", role: "BOWL", isOverseas: false }, { name: "Akash Singh", role: "BOWL", isOverseas: false }, { name: "Prince Yadav", role: "BOWL", isOverseas: false }, { name: "Arjun Tendulkar", role: "BOWL", isOverseas: false }, { name: "Naman Tiwari", role: "BOWL", isOverseas: false }, { name: "Mohsin Khan", role: "BOWL", isOverseas: false },
+    { name: "Aiden Markram", role: "BAT", isOverseas: true }, { name: "Matthew Breetzke", role: "BAT", isOverseas: true }, { name: "Himmat Singh", role: "BAT", isOverseas: false }, { name: "Akshat Raghuwanshi", role: "BAT", isOverseas: false },
+    { name: "Mitchell Marsh", role: "AR", isOverseas: true }, { name: "Wanindu Hasaranga", role: "AR", isOverseas: true }, { name: "Abdul Samad", role: "AR", isOverseas: false }, { name: "Shahbaz Ahamad", role: "AR", isOverseas: false }, { name: "Arshin Kulkarni", role: "AR", isOverseas: false }, { name: "Ayush Badoni", role: "AR", isOverseas: false }
   ],
-  "WI": [
-    { name: "Shai Hope", role: "WK" }, { name: "Shimron Hetmyer", role: "BAT" }, { name: "Johnson Charles", role: "WK" },
-    { name: "Roston Chase", role: "AR" }, { name: "Matthew Forde", role: "BOWL" }, { name: "Jason Holder", role: "AR" },
-    { name: "Akeal Hosein", role: "BOWL" }, { name: "Shamar Joseph", role: "BOWL" }, { name: "Brandon King", role: "BAT" },
-    { name: "Gudakesh Motie", role: "AR" }, { name: "Rovman Powell", role: "BAT" }, { name: "Sherfane Rutherford", role: "BAT" },
-    { name: "Quentin Sampson", role: "AR" }, { name: "Jayden Seales", role: "BOWL" }, { name: "Romario Shepherd", role: "AR" }
+  "MI": [
+    { name: "Quinton de Kock", role: "WK", isOverseas: true }, { name: "Ryan Rickelton", role: "WK", isOverseas: true }, { name: "Robin Minz", role: "WK", isOverseas: false },
+    { name: "Jasprit Bumrah", role: "BOWL", isOverseas: false }, { name: "Trent Boult", role: "BOWL", isOverseas: true }, { name: "Deepak Chahar", role: "BOWL", isOverseas: false }, { name: "Mayank Markande", role: "BOWL", isOverseas: false }, { name: "Allah Ghazanfar", role: "BOWL", isOverseas: true }, { name: "Ashwani Kumar", role: "BOWL", isOverseas: false }, { name: "Raghu Sharma", role: "BOWL", isOverseas: false }, { name: "Mohammad Izhar", role: "BOWL", isOverseas: false },
+    { name: "Rohit Sharma", role: "BAT", isOverseas: false }, { name: "Surya Kumar Yadav", role: "BAT", isOverseas: false }, { name: "Tilak Varma", role: "BAT", isOverseas: false }, { name: "Sherfane Rutherford", role: "BAT", isOverseas: true }, { name: "Danish Malewar", role: "BAT", isOverseas: false },
+    { name: "Hardik Pandya", role: "AR", isOverseas: false }, { name: "Will Jacks", role: "AR", isOverseas: true }, { name: "Mitchell Santner", role: "AR", isOverseas: true }, { name: "Shardul Thakur", role: "AR", isOverseas: false }, { name: "Naman Dhir", role: "AR", isOverseas: false }, { name: "Corbin Bosch", role: "AR", isOverseas: true }, { name: "Raj Angad Bawa", role: "AR", isOverseas: false }, { name: "Atharva Ankolekar", role: "AR", isOverseas: false }, { name: "Mayank Rawat", role: "AR", isOverseas: false }
   ],
-  "SA": [
-    { name: "Aiden Markram", role: "BAT" }, { name: "Corbin Bosch", role: "AR" }, { name: "Dewald Brevis", role: "BAT" },
-    { name: "Quinton de Kock", role: "WK" }, { name: "Marco Jansen", role: "AR" }, { name: "George Linde", role: "AR" },
-    { name: "Keshav Maharaj", role: "BOWL" }, { name: "Kwena Maphaka", role: "BOWL" }, { name: "David Miller", role: "BAT" },
-    { name: "Lungi Ngidi", role: "BOWL" }, { name: "Anrich Nortje", role: "BOWL" }, { name: "Kagiso Rabada", role: "BOWL" },
-    { name: "Ryan Rickelton", role: "WK" }, { name: "Jason Smith", role: "BAT" }, { name: "Tristan Stubbs", role: "WK" }
+  "PBKS": [
+    { name: "Prabhsimran Singh", role: "WK", isOverseas: false }, { name: "Vishnu Vinod", role: "WK", isOverseas: false },
+    { name: "Arshdeep Singh", role: "BOWL", isOverseas: false }, { name: "Yuzvendra Chahal", role: "BOWL", isOverseas: false }, { name: "Vyshak Vijaykumar", role: "BOWL", isOverseas: false }, { name: "Yash Thakur", role: "BOWL", isOverseas: false }, { name: "Lockie Ferguson", role: "BOWL", isOverseas: true }, { name: "Xavier Bartlett", role: "BOWL", isOverseas: true }, { name: "Pravin Dubey", role: "BOWL", isOverseas: false }, { name: "Vishal Nishad", role: "BOWL", isOverseas: false },
+    { name: "Shreyas Iyer", role: "BAT", isOverseas: false }, { name: "Shashank Singh", role: "BAT", isOverseas: false }, { name: "Nehal Wadhera", role: "BAT", isOverseas: false }, { name: "Harnoor Pannu", role: "BAT", isOverseas: false }, { name: "Pyla Avinash", role: "BAT", isOverseas: false }, { name: "Mitch Owen", role: "BAT", isOverseas: true },
+    { name: "Marcus Stoinis", role: "AR", isOverseas: true }, { name: "Marco Jansen", role: "AR", isOverseas: true }, { name: "Azmatullah Omarzai", role: "AR", isOverseas: true }, { name: "Harpreet Brar", role: "AR", isOverseas: false }, { name: "Priyansh Arya", role: "AR", isOverseas: false }, { name: "Musheer Khan", role: "AR", isOverseas: false }, { name: "Suryansh Shedge", role: "AR", isOverseas: false }, { name: "Cooper Connolly", role: "AR", isOverseas: true }, { name: "Ben Dwarshuis", role: "AR", isOverseas: true }
   ],
-  "NZ": [
-    { name: "Mitchell Santner", role: "AR" }, { name: "Finn Allen", role: "BAT" }, { name: "Cole McConchie", role: "AR" },
-    { name: "Mark Chapman", role: "BAT" }, { name: "Devon Conway", role: "WK" }, { name: "Jacob Duffy", role: "BOWL" },
-    { name: "Lockie Ferguson", role: "BOWL" }, { name: "Matt Henry", role: "BOWL" }, { name: "Kyle Jamieson", role: "BOWL" },
-    { name: "Daryl Mitchell", role: "AR" }, { name: "James Neesham", role: "AR" }, { name: "Glenn Phillips", role: "AR" },
-    { name: "Rachin Ravindra", role: "AR" }, { name: "Tim Seifert", role: "BAT" }, { name: "Ish Sodhi", role: "BOWL" }
+  "RR": [
+    { name: "Dhruv Jurel", role: "WK", isOverseas: false }, { name: "Donovan Ferreira", role: "WK", isOverseas: true }, { name: "Ravi Singh", role: "WK", isOverseas: false },
+    { name: "Jofra Archer", role: "BOWL", isOverseas: true }, { name: "Tushar Deshpande", role: "BOWL", isOverseas: false }, { name: "Kwena Maphaka", role: "BOWL", isOverseas: true }, { name: "Ravi Bishnoi", role: "BOWL", isOverseas: false }, { name: "Sushant Mishra", role: "BOWL", isOverseas: false }, { name: "Sandeep Sharma", role: "BOWL", isOverseas: false }, { name: "Nandre Burger", role: "BOWL", isOverseas: true }, { name: "Adam Milne", role: "BOWL", isOverseas: true }, { name: "Kuldeep Sen", role: "BOWL", isOverseas: false }, { name: "Yash Raj Punja", role: "BOWL", isOverseas: false }, { name: "Vignesh Puthur", role: "BOWL", isOverseas: false }, { name: "Brijesh Sharma", role: "BOWL", isOverseas: false },
+    { name: "Yashasvi Jaiswal", role: "BAT", isOverseas: false }, { name: "Shimron Hetmyer", role: "BAT", isOverseas: true }, { name: "Riyan Parag", role: "BAT", isOverseas: false }, { name: "Shubham Dubey", role: "BAT", isOverseas: false }, { name: "Vaibhav Suryavanshi", role: "BAT", isOverseas: false }, { name: "Lhuan-dre Pretorius", role: "BAT", isOverseas: true }, { name: "Aman Rao Perala", role: "BAT", isOverseas: false },
+    { name: "Ravindra Jadeja", role: "AR", isOverseas: false }, { name: "Sam Curran", role: "AR", isOverseas: true }, { name: "Yudhvir Singh Charak", role: "AR", isOverseas: false }
   ],
-  "AFG": [
-    { name: "Rashid Khan", role: "BOWL" }, { name: "Noor Ahmad", role: "BOWL" }, { name: "Abdullah Ahmadzai", role: "BOWL" },
-    { name: "Sediqullah Atal", role: "BAT" }, { name: "Fazalhaq Farooqi", role: "BOWL" }, { name: "Rahmanullah Gurbaz", role: "WK" },
-    { name: "Mohammad Ishaq", role: "WK" }, { name: "Shahidullah Kamal", role: "AR" }, { name: "Mohammad Nabi", role: "AR" },
-    { name: "Gulbadin Naib", role: "AR" }, { name: "Azmatullah Omarzai", role: "AR" }, { name: "Mujeeb Ur Rahman", role: "BOWL" },
-    { name: "Darwish Rasooli", role: "BAT" }, { name: "Ibrahim Zadran", role: "BAT" }, { name: "Ziaur Rahman Sharifi", role: "BOWL" }
+  "RCB": [
+    { name: "Phil Salt", role: "WK", isOverseas: true }, { name: "Jitesh Sharma", role: "WK", isOverseas: false }, { name: "Jordan Cox", role: "WK", isOverseas: true },
+    { name: "Josh Hazlewood", role: "BOWL", isOverseas: true }, { name: "Bhuvneshwar Kumar", role: "BOWL", isOverseas: false }, { name: "Yash Dayal", role: "BOWL", isOverseas: false }, { name: "Nuwan Tushara", role: "BOWL", isOverseas: true }, { name: "Rasikh Dar", role: "BOWL", isOverseas: false }, { name: "Suyash Sharma", role: "BOWL", isOverseas: false }, { name: "Jacob Duffy", role: "BOWL", isOverseas: true }, { name: "Abhinandan Singh", role: "BOWL", isOverseas: false },
+    { name: "Virat Kohli", role: "BAT", isOverseas: false }, { name: "Rajat Patidar", role: "BAT", isOverseas: false }, { name: "Devdutt Padikkal", role: "BAT", isOverseas: false },
+    { name: "Krunal Pandya", role: "AR", isOverseas: false }, { name: "Venkatesh Iyer", role: "AR", isOverseas: false }, { name: "Tim David", role: "AR", isOverseas: true }, { name: "Romario Shepherd", role: "AR", isOverseas: true }, { name: "Jacob Bethell", role: "AR", isOverseas: true }, { name: "Swapnil Singh", role: "AR", isOverseas: false }, { name: "Mangesh Yadav", role: "AR", isOverseas: false }, { name: "Vihaan Malhotra", role: "AR", isOverseas: false }, { name: "Satvik Deswal", role: "AR", isOverseas: false }, { name: "Vicky Ostwal", role: "AR", isOverseas: false }, { name: "Kanishk Chouhan", role: "AR", isOverseas: false }
   ],
-
+  "SRH": [
+    { name: "Heinrich Klaasen", role: "WK", isOverseas: true }, { name: "Ishan Kishan", role: "WK", isOverseas: false }, { name: "Salil Arora", role: "WK", isOverseas: false },
+    { name: "Pat Cummins", role: "BOWL", isOverseas: true }, { name: "Shivam Mavi", role: "BOWL", isOverseas: false }, { name: "Jaydev Unadkat", role: "BOWL", isOverseas: false }, { name: "Eshan Malinga", role: "BOWL", isOverseas: true }, { name: "Zeeshan Ansari", role: "BOWL", isOverseas: false }, { name: "Sakib Hussain", role: "BOWL", isOverseas: false }, { name: "Onkar Tarmale", role: "BOWL", isOverseas: false }, { name: "Amit Kumar", role: "BOWL", isOverseas: false }, { name: "Praful Hinge", role: "BOWL", isOverseas: false },
+    { name: "Travis Head", role: "BAT", isOverseas: true }, { name: "Aniket Verma", role: "BAT", isOverseas: false }, { name: "Smaran Ravichandran", role: "BAT", isOverseas: false },
+    { name: "Abhishek Sharma", role: "AR", isOverseas: false }, { name: "Nitish Kumar Reddy", role: "AR", isOverseas: false }, { name: "Harshal Patel", role: "AR", isOverseas: false }, { name: "Liam Livingstone", role: "AR", isOverseas: true }, { name: "Kamindu Mendis", role: "AR", isOverseas: true }, { name: "Brydon Carse", role: "AR", isOverseas: true }, { name: "Jack Edwards", role: "AR", isOverseas: true }, { name: "Harsh Dubey", role: "AR", isOverseas: false }, { name: "Shivang Kumar", role: "AR", isOverseas: false }, { name: "Krains Fuletra", role: "AR", isOverseas: false }
+  ]
 };
+
 
 // ---------------------------------------------------------
 // DATABASE 2: FANTASY ROSTERS (User Teams)
 // ---------------------------------------------------------
 const FANTASY_ROSTERS = {
-  "Group 1": ["Kamindu Mendis", "Kuldeep Yadav", "Johnson Charles", "Suryakumar Yadav", "Dushan Hemantha", "Keshav Maharaj", "Mark Chapman", "Rachin Ravindra", "Axar Patel", "Quinton de Kock", "Rinku Singh", "Azmatullah Omarzai", "Rahmanullah Gurbaz", "Jofra Archer", "Jasprit Bumrah", "Josh Inglis", "Cooper Connolly"],
-  "Group 2": ["Harry Brook", "Mohammad Nawaz", "Sam Curran", "Dushmantha Chameera", "Naseem Shah", "George Linde", "Arshdeep Singh", "Ishan Kishan", "Tim Seifert", "Nathan Ellis", "Tilak Varma", "Ryan Rickelton", "Mitchell Santner", "Kyle Jamieson", "Ibrahim Zadran", "Saim Ayub", "Adil Rashid"],
-  "Group 3": ["Mitchell Marsh", "Dewald Brevis", "Varun Chakaravarthy", "Travis Head", "Brandon King", "Abrar Ahmed", "Usman Tariq", "Akeal Hosein", "Jason Smith", "Ben Dwarshuis", "Glenn Phillips", "Matt Henry", "Jason Holder", "Jos Buttler", "Luke Wood", "Usman Khan", "Liam Dawson"],
-  "Group 4": ["Matthew Kuhnemann", "Ben Duckett", "Tom Banton", "Adam Zampa", "Philip Salt", "Shadab Khan", "Lungi Ngidi", "Glenn Maxwell", "Marcus Stoinis", "David Miller", "Jacob Bethell", "Aiden Markram", "Romario Shepherd", "Gudakesh Motie", "Marco Jansen", "Noor Ahmad", "Dasun Shanaka"],
-  "Group 5": ["Dilshan Madushanka", "Cameron Green", "Roston Chase", "Rashid Khan", "Salman Agha", "Ish Sodhi", "Cole McConchie", "Sherfane Rutherford", "Shivam Dube", "Abhishek Sharma", "Pathum Nissanka", "Devon Conway", "Mohd Siraj", "Xavier Bartlett", "Jacob Duffy", "Corbin Bosch", "Shai Hope"],
-  "Group 6": ["Hardik Pandya", "Kusal Mendis", "James Neesham", "Rovman Powell", "Lockie Ferguson", "Babar Azam", "Shaheen Afridi", "Daryl Mitchell", "Finn Allen", "Sediqullah Atal", "Tristan Stubbs", "Maheesh Theekshana", "Fakhar Zaman", "Will Jacks", "Jamie Overton", "Shimron Hetmyer", "Tim David"]
+  "Group 1": ["Cameron Green", "Sai Sudharsan", "Shubman Gill", "Varun Chakravarthy", "KL Rahul", "Heinrich Klaasen", "Harshit Rana", "Venkatesh Iyer", "Romario Shepherd", "Auqib Dar", "Prashant Veer", "Rahul Tewatia", "Naman Dhir", "Rasikh Dar", "Sandeep Sharma", "Suyash Sharma", "Anshul Kamboj", "Ashwani Kumar", "Rahul Tripathi", "Xavier Bartlett", "Rachin Ravindra", "David Miller"],
+  "Group 2": ["Virat Kohli", "Surya Kumar Yadav", "Ishan Kishan", "Jasprit Bumrah", "Phil Salt", "Priyansh Arya", "Abhishek Porel", "Ayush Mhatre", "Sam Curran", "Mayank Yadav", "Mukesh Kumar", "Digvesh Singh", "Aniket Verma", "Kagiso Rabada", "Nuwan Tushara", "Yash Dayal", "Kartik Sharma", "Glenn Phillips", "Vyshak Vijaykumar", "Liam Livingstone", "Cooper Connolly", "Finn Allen"],
+  "Group 3": ["Tilak Varma", "Ruturaj Gaikwad", "Abhishek Sharma", "Rishabh Pant", "Axar Patel", "Kuldeep Yadav", "Noor Ahmad", "Washington Sundar", "Jacob Bethell", "Shashank Singh", "Wanindu Hasaranga", "Nathan Ellis", "Matheesha Pathirana", "Shardul Thakur", "Marcus Stoinis", "Ramandeep Singh", "Deepak Chahar", "Aman Rao Perala", "Sherfane Rutherford", "Prince Yadav", "Tim David", "MS Dhoni"],
+  "Group 4": ["Yashasvi Jaiswal", "Shreyas Iyer", "Sunil Narine", "Vaibhav Arora", "Rajat Patidar", "Shivam Dube", "Nehal Wadhera", "Mitchell Starc", "Sai Kishore", "Nitish Rana", "Jitesh Sharma", "Dhruv Jurel", "Tushar Deshpande", "Vipraj Nigam", "Pat Cummins", "Ayush Badoni", "Zeeshan Ansari", "Mayank Markande", "Zak Foulkes", "Donovan Ferreira", "Tom Banton", "Jason Holder"],
+  "Group 5": ["Devdutt Padikkal", "Mohammad Shami", "Hardik Pandya", "Travis Head", "Jos Buttler", "Prabhsimran Singh", "Yuzvendra Chahal", "Quinton de Kock", "Ravi Bishnoi", "Angkrish Raghuvanshi", "Ryan Rickelton", "Rinku Singh", "Ashutosh Sharma", "Sameer Rizvi", "Harshal Patel", "Shahbaz Ahamad", "Mitchell Marsh", "Jayant Yadav", "Anrich Nortje", "Shreyas Gopal", "Josh Hazlewood", "Shimron Hetmyer"],
+  "Group 6": ["Dewald Brevis", "Vaibhav Suryavanshi", "Krunal Pandya", "Trent Boult", "Marco Jansen", "Prasidh Krishna", "Sanju Samson", "Ravindra Jadeja", "Rashid Khan", "Riyan Parag", "Josh Inglis", "Karun Nair", "Vignesh Puthur", "Eshan Malinga", "Lungi Ngidi", "Kwena Maphaka", "Urvil Patel", "Akash Singh", "Arjun Tendulkar", "Sarfaraz Khan", "Abdul Samad", "Natarajan"],
+  "Group 7": ["Aiden Markram", "Tristan Stubbs", "Nicholas Pooran", "Rohit Sharma", "Bhuvneshwar Kumar", "Arshdeep Singh", "Khaleel Ahmed", "Ajinkya Rahane", "Mohammed Siraj", "Lockie Ferguson", "Tim Seifert", "Mitchell Santner", "Jacob Duffy", "Nitish Kumar Reddy", "Avesh Khan", "Corbin Bosch", "Harpreet Brar", "Shahrukh Khan", "Vicky Ostwal", "Anuj Rawat", "Jaydev Unadkat", "Harsh Dubey"]
 };
 
 const MATCH_SCHEDULE = [
-  { id: 1, teams: "Pakistan vs Netherlands", countries: ["PAK", "NED"], start: "2026-02-07T11:00:00" },
-  { id: 2, teams: "West Indies vs Scotland", countries: ["WI", "SCO"], start: "2026-02-07T15:00:00" },
-  { id: 3, teams: "India vs USA", countries: ["IND", "USA"], start: "2026-02-07T19:00:00" },
-  { id: 4, teams: "New Zealand vs Afghanistan", countries: ["NZ", "AFG"], start: "2026-02-08T11:00:00" },
-  { id: 5, teams: "England vs Nepal", countries: ["ENG", "NEP"], start: "2026-02-08T15:00:00" },
-  { id: 6, teams: "Sri Lanka vs Ireland", countries: ["SL", "IRE"], start: "2026-02-08T19:00:00" },
-  { id: 7, teams: "Scotland vs Italy", countries: ["SCO", "ITA"], start: "2026-02-09T11:00:00" },
-  { id: 8, teams: "Zimbabwe vs Oman", countries: ["ZIM", "OMA"], start: "2026-02-09T15:00:00" },
-  { id: 9, teams: "South Africa vs Canada", countries: ["SA", "CAN"], start: "2026-02-09T19:00:00" },
-  { id: 10, teams: "Netherlands vs Namibia", countries: ["NED", "NAM"], start: "2026-02-10T11:00:00" },
-  { id: 11, teams: "New Zealand vs UAE", countries: ["NZ", "UAE"], start: "2026-02-10T15:00:00" },
-  { id: 12, teams: "Pakistan vs USA", countries: ["PAK", "USA"], start: "2026-02-10T19:00:00" },
-  { id: 13, teams: "South Africa vs Afghanistan", countries: ["SA", "AFG"], start: "2026-02-11T11:00:00" },
-  { id: 14, teams: "Australia vs Ireland", countries: ["AUS", "IRE"], start: "2026-02-11T15:00:00" },
-  { id: 15, teams: "England vs West Indies", countries: ["ENG", "WI"], start: "2026-02-11T19:00:00" },
-  { id: 16, teams: "Sri Lanka vs Oman", countries: ["SL", "OMA"], start: "2026-02-12T11:00:00" },
-  { id: 17, teams: "Nepal vs Italy", countries: ["NEP", "ITA"], start: "2026-02-12T15:00:00" },
-  { id: 18, teams: "India vs Namibia", countries: ["IND", "NAM"], start: "2026-02-12T19:00:00" },
-  { id: 19, teams: "Australia vs Zimbabwe", countries: ["AUS", "ZIM"], start: "2026-02-13T11:00:00" },
-  { id: 20, teams: "Canada vs UAE", countries: ["CAN", "UAE"], start: "2026-02-13T15:00:00" },
-  { id: 21, teams: "USA vs Netherlands", countries: ["USA", "NED"], start: "2026-02-13T19:00:00" },
-  { id: 22, teams: "Ireland vs Oman", countries: ["IRE", "OMA"], start: "2026-02-14T11:00:00" },
-  { id: 23, teams: "England vs Scotland", countries: ["ENG", "SCO"], start: "2026-02-14T15:00:00" },
-  { id: 24, teams: "New Zealand vs South Africa", countries: ["NZ", "SA"], start: "2026-02-14T19:00:00" },
-  { id: 25, teams: "West Indies vs Nepal", countries: ["WI", "NEP"], start: "2026-02-15T11:00:00" },
-  { id: 26, teams: "USA vs Namibia", countries: ["USA", "NAM"], start: "2026-02-15T15:00:00" },
-  { id: 27, teams: "India vs Pakistan", countries: ["IND", "PAK"], start: "2026-02-15T19:00:00" },
-  { id: 28, teams: "Afghanistan vs UAE", countries: ["AFG", "UAE"], start: "2026-02-16T11:00:00" },
-  { id: 29, teams: "England vs Italy", countries: ["ENG", "ITA"], start: "2026-02-16T15:00:00" },
-  { id: 30, teams: "Australia vs Sri Lanka", countries: ["AUS", "SL"], start: "2026-02-16T19:00:00" },
-  { id: 31, teams: "New Zealand vs Canada", countries: ["NZ", "CAN"], start: "2026-02-17T11:00:00" },
-  { id: 32, teams: "Ireland vs Zimbabwe", countries: ["IRE", "ZIM"], start: "2026-02-17T15:00:00" },
-  { id: 33, teams: "Scotland vs Nepal", countries: ["SCO", "NEP"], start: "2026-02-17T19:00:00" },
-  { id: 34, teams: "South Africa vs UAE", countries: ["SA", "UAE"], start: "2026-02-18T11:00:00" },
-  { id: 35, teams: "Pakistan vs Namibia", countries: ["PAK", "NAM"], start: "2026-02-18T15:00:00" },
-  { id: 36, teams: "India vs Netherlands", countries: ["IND", "NED"], start: "2026-02-18T19:00:00" },
-  { id: 37, teams: "West Indies vs Italy", countries: ["WI", "ITA"], start: "2026-02-19T11:00:00" },
-  { id: 38, teams: "Sri Lanka vs Zimbabwe", countries: ["SL", "ZIM"], start: "2026-02-19T15:00:00" },
-  { id: 39, teams: "Afghanistan vs Canada", countries: ["AFG", "CAN"], start: "2026-02-19T19:00:00" },
-  { id: 40, teams: "Australia vs Oman", countries: ["AUS", "OMA"], start: "2026-02-20T19:00:00" },
-  { id: 41, teams: "New Zealand vs Pakistan", countries: ["NZ", "PAK"], start: "2026-02-21T19:00:00" },
-  { id: 42, teams: "England vs Sri Lanka", countries: ["ENG", "SL"], start: "2026-02-22T15:00:00" },
-  { id: 43, teams: "India vs South Africa", countries: ["IND", "SA"], start: "2026-02-22T19:00:00" },
-  { id: 44, teams: "Zimbabwe vs West Indies", countries: ["ZIM", "WI"], start: "2026-02-23T19:00:00" },
-  { id: 45, teams: "England vs Pakistan", countries: ["ENG", "PAK"], start: "2026-02-24T19:00:00" },
-  { id: 46, teams: "New Zealand vs Sri Lanka", countries: ["NZ", "SL"], start: "2026-02-25T19:00:00" },
-  { id: 47, teams: "West Indies vs South Africa", countries: ["WI", "SA"], start: "2026-02-26T15:00:00" },
-  { id: 48, teams: "India vs Zimbabwe", countries: ["IND", "ZIM"], start: "2026-02-26T19:00:00" },
-  { id: 49, teams: "England vs New Zealand", countries: ["ENG", "NZ"], start: "2026-02-27T19:00:00" },
-  { id: 50, teams: "Pakistan vs Sri Lanka", countries: ["PAK", "SL"], start: "2026-02-28T19:00:00" },
-  { id: 51, teams: "Zimbabwe vs South Africa", countries: ["ZIM", "SA"], start: "2026-03-01T15:00:00" },
-  { id: 52, teams: "India vs West Indies", countries: ["IND", "WI"], start: "2026-03-01T19:00:00" },
-  { id: 53, teams: "Semi-final 1", countries: ["SA", "NZ"], start: "2026-03-04T19:00:00" },
-  { id: 54, teams: "Semi-final 2", countries: ["ENG", "IND"], start: "2026-03-05T19:00:00" },
-  { id: 55, teams: "Final", countries: ["NZ", "IND"], start: "2026-03-08T19:00:00" }
+  { id: 1, teams: "CSK vs MI", countries: ["CSK", "MI"], start: "2026-03-28T19:30:00" },
+  { id: 2, teams: "RCB vs KKR", countries: ["RCB", "KKR"], start: "2026-03-29T19:30:00" },
+  { id: 3, teams: "SRH vs RR", countries: ["SRH", "RR"], start: "2026-03-30T19:30:00" },
+  { id: 4, teams: "DC vs LSG", countries: ["DC", "LSG"], start: "2026-03-31T19:30:00" },
+  { id: 5, teams: "GT vs PBKS", countries: ["GT", "PBKS"], start: "2026-04-01T19:30:00" },
+  { id: 6, teams: "MI vs RCB", countries: ["MI", "RCB"], start: "2026-04-02T19:30:00" },
+  { id: 7, teams: "KKR vs SRH", countries: ["KKR", "SRH"], start: "2026-04-03T19:30:00" },
+  { id: 8, teams: "RR vs DC", countries: ["RR", "DC"], start: "2026-04-04T15:30:00" },
+  { id: 9, teams: "LSG vs GT", countries: ["LSG", "GT"], start: "2026-04-04T19:30:00" },
+  { id: 10, teams: "PBKS vs CSK", countries: ["PBKS", "CSK"], start: "2026-04-05T19:30:00" },
+  { id: 11, teams: "MI vs KKR", countries: ["MI", "KKR"], start: "2026-04-06T19:30:00" },
+  { id: 12, teams: "RCB vs SRH", countries: ["RCB", "SRH"], start: "2026-04-07T19:30:00" },
+  { id: 13, teams: "RR vs LSG", countries: ["RR", "LSG"], start: "2026-04-08T19:30:00" },
+  { id: 14, teams: "DC vs GT", countries: ["DC", "GT"], start: "2026-04-09T19:30:00" },
+  { id: 15, teams: "PBKS vs MI", countries: ["PBKS", "MI"], start: "2026-04-10T19:30:00" },
+  { id: 16, teams: "CSK vs RCB", countries: ["CSK", "RCB"], start: "2026-04-11T15:30:00" },
+  { id: 17, teams: "KKR vs RR", countries: ["KKR", "RR"], start: "2026-04-11T19:30:00" },
+  { id: 18, teams: "SRH vs DC", countries: ["SRH", "DC"], start: "2026-04-12T19:30:00" },
+  { id: 19, teams: "LSG vs PBKS", countries: ["LSG", "PBKS"], start: "2026-04-13T19:30:00" },
+  { id: 20, teams: "GT vs CSK", countries: ["GT", "CSK"], start: "2026-04-14T19:30:00" },
+  { id: 21, teams: "MI vs SRH", countries: ["MI", "SRH"], start: "2026-04-15T19:30:00" },
+  { id: 22, teams: "RCB vs DC", countries: ["RCB", "DC"], start: "2026-04-16T19:30:00" },
+  { id: 23, teams: "RR vs GT", countries: ["RR", "GT"], start: "2026-04-17T19:30:00" },
+  { id: 24, teams: "KKR vs PBKS", countries: ["KKR", "PBKS"], start: "2026-04-18T15:30:00" },
+  { id: 25, teams: "LSG vs CSK", countries: ["LSG", "CSK"], start: "2026-04-18T19:30:00" },
+  { id: 26, teams: "SRH vs RCB", countries: ["SRH", "RCB"], start: "2026-04-19T19:30:00" },
+  { id: 27, teams: "DC vs MI", countries: ["DC", "MI"], start: "2026-04-20T19:30:00" },
+  { id: 28, teams: "PBKS vs RR", countries: ["PBKS", "RR"], start: "2026-04-21T19:30:00" },
+  { id: 29, teams: "GT vs KKR", countries: ["GT", "KKR"], start: "2026-04-22T19:30:00" },
+  { id: 30, teams: "CSK vs SRH", countries: ["CSK", "SRH"], start: "2026-04-23T19:30:00" },
+  { id: 31, teams: "RCB vs LSG", countries: ["RCB", "LSG"], start: "2026-04-24T19:30:00" },
+  { id: 32, teams: "MI vs GT", countries: ["MI", "GT"], start: "2026-04-25T15:30:00" },
+  { id: 33, teams: "RR vs PBKS", countries: ["RR", "PBKS"], start: "2026-04-25T19:30:00" },
+  { id: 34, teams: "DC vs CSK", countries: ["DC", "CSK"], start: "2026-04-26T19:30:00" },
+  { id: 35, teams: "KKR vs LSG", countries: ["KKR", "LSG"], start: "2026-04-27T19:30:00" },
+  { id: 36, teams: "SRH vs GT", countries: ["SRH", "GT"], start: "2026-04-28T19:30:00" },
+  { id: 37, teams: "PBKS vs RCB", countries: ["PBKS", "RCB"], start: "2026-04-29T19:30:00" },
+  { id: 38, teams: "MI vs RR", countries: ["MI", "RR"], start: "2026-04-30T19:30:00" },
+  { id: 39, teams: "CSK vs KKR", countries: ["CSK", "KKR"], start: "2026-05-01T19:30:00" },
+  { id: 40, teams: "LSG vs DC", countries: ["LSG", "DC"], start: "2026-05-02T15:30:00" },
+  { id: 41, teams: "GT vs SRH", countries: ["GT", "SRH"], start: "2026-05-02T19:30:00" },
+  { id: 42, teams: "RCB vs MI", countries: ["RCB", "MI"], start: "2026-05-03T19:30:00" },
+  { id: 43, teams: "RR vs KKR", countries: ["RR", "KKR"], start: "2026-05-04T19:30:00" },
+  { id: 44, teams: "PBKS vs DC", countries: ["PBKS", "DC"], start: "2026-05-05T19:30:00" },
+  { id: 45, teams: "CSK vs GT", countries: ["CSK", "GT"], start: "2026-05-06T19:30:00" },
+  { id: 46, teams: "SRH vs LSG", countries: ["SRH", "LSG"], start: "2026-05-07T19:30:00" },
+  { id: 47, teams: "DC vs RCB", countries: ["DC", "RCB"], start: "2026-05-08T19:30:00" },
+  { id: 48, teams: "MI vs PBKS", countries: ["MI", "PBKS"], start: "2026-05-09T15:30:00" },
+  { id: 49, teams: "KKR vs GT", countries: ["KKR", "GT"], start: "2026-05-09T19:30:00" },
+  { id: 50, teams: "RR vs CSK", countries: ["RR", "CSK"], start: "2026-05-10T19:30:00" },
+  { id: 51, teams: "LSG vs SRH", countries: ["LSG", "SRH"], start: "2026-05-11T19:30:00" },
+  { id: 52, teams: "RCB vs PBKS", countries: ["RCB", "PBKS"], start: "2026-05-12T19:30:00" },
+  { id: 53, teams: "GT vs MI", countries: ["GT", "MI"], start: "2026-05-13T19:30:00" },
+  { id: 54, teams: "DC vs RR", countries: ["DC", "RR"], start: "2026-05-14T19:30:00" },
+  { id: 55, teams: "PBKS vs LSG", countries: ["PBKS", "LSG"], start: "2026-05-15T19:30:00" },
+  { id: 56, teams: "KKR vs MI", countries: ["KKR", "MI"], start: "2026-05-16T15:30:00" },
+  { id: 57, teams: "SRH vs CSK", countries: ["SRH", "CSK"], start: "2026-05-16T19:30:00" },
+  { id: 58, teams: "GT vs DC", countries: ["GT", "DC"], start: "2026-05-17T19:30:00" },
+  { id: 59, teams: "LSG vs RCB", countries: ["LSG", "RCB"], start: "2026-05-18T19:30:00" },
+  { id: 60, teams: "MI vs CSK", countries: ["MI", "CSK"], start: "2026-05-19T19:30:00" },
+  { id: 61, teams: "RR vs SRH", countries: ["RR", "SRH"], start: "2026-05-20T19:30:00" },
+  { id: 62, teams: "PBKS vs KKR", countries: ["PBKS", "KKR"], start: "2026-05-21T19:30:00" },
+  { id: 63, teams: "DC vs SRH", countries: ["DC", "SRH"], start: "2026-05-22T19:30:00" },
+  { id: 64, teams: "CSK vs PBKS", countries: ["CSK", "PBKS"], start: "2026-05-23T15:30:00" },
+  { id: 65, teams: "LSG vs RR", countries: ["LSG", "RR"], start: "2026-05-23T19:30:00" },
+  { id: 66, teams: "GT vs RCB", countries: ["GT", "RCB"], start: "2026-05-24T19:30:00" },
+  { id: 67, teams: "Qualifier 1", countries: ["MI", "CSK"], start: "2026-05-26T19:30:00" },
+  { id: 68, teams: "Eliminator", countries: ["RCB", "KKR"], start: "2026-05-27T19:30:00" },
+  { id: 69, teams: "Qualifier 2", countries: ["CSK", "RCB"], start: "2026-05-29T19:30:00" },
+  { id: 70, teams: "Final", countries: ["MI", "RCB"], start: "2026-05-31T19:30:00" }
 ];
 
 // Helper: Get Role
 const getRole = (playerName) => {
-  for (const country in NATIONAL_SQUADS) {
-    const player = NATIONAL_SQUADS[country].find(p => p.name === playerName);
+  for (const country in Squads) {
+    const player = Squads[country].find(p => p.name === playerName);
     if (player) return player.role;
   }
   return "AR";
+};
+
+const isOverseasPlayer = (playerName) => {
+  for (const country in Squads) {
+    const player = Squads[country].find(p => p.name === playerName);
+    if (player) return !!player.isOverseas;
+  }
+  return false;
 };
 
 // --- SHARED SCORING HELPER ---
@@ -417,15 +438,15 @@ export default function App() {
   );
 
   const mvpList = useMemo(() => {
-    // 1. Get all players from National Squads to ensure everyone is listed
-    const allPlayers = Object.values(NATIONAL_SQUADS).flat();
+    // 1. Get all players from  Squads to ensure everyone is listed
+    const allPlayers = Object.values(Squads).flat();
 
     // 2. Merge with registry data (points)
     return allPlayers.map(p => {
       const regData = playerRegistry[p.name] || { points: 0 };
 
-      const country = Object.keys(NATIONAL_SQUADS).find(c =>
-        NATIONAL_SQUADS[c].some(np => np.name === p.name)
+      const country = Object.keys(Squads).find(c =>
+        Squads[c].some(np => np.name === p.name)
       ) || "UNK";
 
       const group = fantasyTeams.find(t =>
@@ -441,6 +462,7 @@ export default function App() {
         matchesPlayed: matchesPlayed,
         role: p.role,
         country,
+        isOverseas: !!p.isOverseas,
         group
       };
     })
@@ -867,7 +889,7 @@ export default function App() {
         <div className="text-center md:text-left">
           <div className="flex flex-col gap-2">
             <h1 className="text-5xl md:text-7xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 italic tracking-tighter uppercase leading-[0.9] drop-shadow-2xl">
-              T20 WC <span className="text-white drop-shadow-none">2026</span>
+              IPL <span className="text-white drop-shadow-none">2026</span>
             </h1>
             <p className="text-xs font-bold text-slate-500 tracking-[0.4em] uppercase pl-1">Official Fantasy League</p>
           </div>
@@ -1095,7 +1117,9 @@ export default function App() {
                       return (
                         <tr key={player.name} className="hover:bg-white/[0.02] transition-colors group">
                           <td className={`px-8 py-6 font-black text-2xl ${rankStyle}`}>#{index + 1}</td>
-                          <td className="px-8 py-6 font-bold text-white uppercase text-xl group-hover:text-blue-400 transition-colors">{player.name}</td>
+                          <td className="px-8 py-6 font-bold text-white uppercase text-xl group-hover:text-blue-400 transition-colors">
+                            {player.name} {player.isOverseas && <span className="text-sm" title="Overseas Player">✈️</span>}
+                          </td>
                           <td className="px-8 py-6 text-center">
                             <span className="text-[9px] font-black uppercase px-3 py-1 rounded-lg bg-slate-800 text-slate-400 border border-white/5 group-hover:border-white/10">{player.role}</span>
                           </td>
@@ -1215,10 +1239,10 @@ export default function App() {
                         <h4 className="text-lg font-black text-white uppercase">{countryCode} Squad</h4>
                       </div>
                       <div className="space-y-2">
-                        {(NATIONAL_SQUADS[countryCode] || []).map(p => (
+                        {(Squads[countryCode] || []).map(p => (
                           <div key={p.name} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
                             <div>
-                              <p className="font-bold text-white text-sm">{p.name}</p>
+                              <p className="font-bold text-white text-sm">{p.name} {p.isOverseas && <span className="text-[10px]" title="Overseas Player">✈️</span>}</p>
                               <p className="text-[8px] text-slate-500 font-black uppercase">{p.role} • Hist: {playerRegistry[p.name]?.points || 0}</p>
                             </div>
                             <input
@@ -1247,7 +1271,7 @@ export default function App() {
                       className="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-sm font-bold text-white outline-none focus:border-blue-500 transition-all uppercase"
                     >
                       <option value="">Select Player...</option>
-                      {resolvingMatch.countries.flatMap(c => NATIONAL_SQUADS[c] || []).map(p => (
+                      {resolvingMatch.countries.flatMap(c => Squads[c] || []).map(p => (
                         <option key={p.name} value={p.name}>{p.name} ({p.role})</option>
                       ))}
                     </select>
@@ -1274,6 +1298,7 @@ export default function App() {
           // --- Validation Logic ---
           const xi = editingTeam.playingXINames;
           const roles = xi.map(n => getRole(n));
+          const overseasCount = xi.filter(n => isOverseasPlayer(n)).length;
           const counts = {
             WK: roles.filter(r => r === 'WK').length,
             AR: roles.filter(r => r === 'AR').length,
@@ -1291,6 +1316,7 @@ export default function App() {
           if (counts.AR < 1) errors.push("Min 1 AR");
           if (counts.BAT < 2) errors.push("Min 2 BAT");
           if (counts.BOWL < 2) errors.push("Min 2 BOWL");
+          if (overseasCount > 4) errors.push(`Max 4 Overseas (${overseasCount}/4)`);
           const isFlexi = editingTeam.activeChip === 'flexi';
           if (!isFlexi && !editingTeam.captainName) errors.push("Select Captain");
           if (!isFlexi && !editingTeam.viceCaptainName) errors.push("Select VC");
@@ -1395,8 +1421,8 @@ export default function App() {
                           const isCap = editingTeam.captainName === p.name;
                           const isVC = editingTeam.viceCaptainName === p.name;
 
-                          const playerTeam = Object.keys(NATIONAL_SQUADS).find(t =>
-                            NATIONAL_SQUADS[t].some(pl => pl.name === p.name)
+                          const playerTeam = Object.keys(Squads).find(t =>
+                            Squads[t].some(pl => pl.name === p.name)
                           ) || "UNK";
 
                           const playerPoints = playerRegistry[p.name]?.points || 0;
@@ -1443,7 +1469,7 @@ export default function App() {
                                 </div>
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <p className="font-bold text-white text-sm uppercase">{p.name}</p>
+                                    <p className="font-bold text-white text-sm uppercase">{p.name} {isOverseasPlayer(p.name) && <span className="text-[10px]" title="Overseas Player">✈️</span>}</p>
                                     {isCap && <span className="bg-yellow-500 text-black text-[8px] font-black px-1.5 rounded">C (2x)</span>}
                                     {isVC && <span className="bg-indigo-500 text-white text-[8px] font-black px-1.5 rounded">VC (1.5x)</span>}
 

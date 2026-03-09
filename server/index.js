@@ -9,7 +9,8 @@ const app = express();
 app.use(cors({
     origin: [
         "http://localhost:5173",
-        "https://t20-fantasy-game.vercel.app"
+        "https://t20-fantasy-game.vercel.app",
+        "https://ipl-fantasy-game.vercel.app"
     ]
 }));
 app.use(express.json());
