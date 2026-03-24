@@ -7,7 +7,7 @@ import {
   Hash, Calculator, Users, ShieldCheck, ListChecks, Settings, Flag, Check, LogOut, KeyRound, Eye, Search, DatabaseBackup, History
 } from 'lucide-react';
 import { Analytics } from "@vercel/analytics/react"
-//IPL 2026 schedule is dummy
+
 // --- CONSTANTS ---
 const INITIAL_SYSTEM_TIME = new Date();
 const MATCH_DURATION_HOURS = 3.0;
@@ -19,7 +19,7 @@ const LOCAL_STORAGE_KEY_ROSTER = 'fantasy_roster_data';
 const Squads = {
   "CSK": [
     { name: "MS Dhoni", role: "WK", isOverseas: false }, { name: "Sanju Samson", role: "WK", isOverseas: false }, { name: "Kartik Sharma", role: "WK", isOverseas: false }, { name: "Urvil Patel", role: "WK", isOverseas: false },
-    { name: "Jamie Overton", role: "BOWL", isOverseas: true }, { name: "Khaleel Ahmed", role: "BOWL", isOverseas: false }, { name: "Noor Ahmad", role: "BOWL", isOverseas: true }, { name: "Mukesh Choudhary", role: "BOWL", isOverseas: false }, { name: "Nathan Ellis", role: "BOWL", isOverseas: true }, { name: "Shreyas Gopal", role: "BOWL", isOverseas: false }, { name: "Gurjapneet Singh", role: "BOWL", isOverseas: false }, { name: "Akeal Hosein", role: "BOWL", isOverseas: true }, { name: "Matt Henry", role: "BOWL", isOverseas: true }, { name: "Rahul Chahar", role: "BOWL", isOverseas: false },
+    { name: "Jamie Overton", role: "BOWL", isOverseas: true }, { name: "Khaleel Ahmed", role: "BOWL", isOverseas: false }, { name: "Noor Ahmad", role: "BOWL", isOverseas: true }, { name: "Mukesh Choudhary", role: "BOWL", isOverseas: false }, { name: "Spencer Johnson", role: "BOWL", isOverseas: true }, { name: "Shreyas Gopal", role: "BOWL", isOverseas: false }, { name: "Gurjapneet Singh", role: "BOWL", isOverseas: false }, { name: "Akeal Hosein", role: "BOWL", isOverseas: true }, { name: "Matt Henry", role: "BOWL", isOverseas: true }, { name: "Rahul Chahar", role: "BOWL", isOverseas: false },
     { name: "Ruturaj Gaikwad", role: "BAT", isOverseas: false }, { name: "Dewald Brevis", role: "BAT", isOverseas: true }, { name: "Ayush Mhatre", role: "BAT", isOverseas: false }, { name: "Sarfaraz Khan", role: "BAT", isOverseas: false },
     { name: "Shivam Dube", role: "AR", isOverseas: false }, { name: "Anshul Kamboj", role: "AR", isOverseas: false }, { name: "Ramakrishna Ghosh", role: "AR", isOverseas: false }, { name: "Prashant Veer", role: "AR", isOverseas: false }, { name: "Matthew Short", role: "AR", isOverseas: true }, { name: "Aman Khan", role: "AR", isOverseas: false }, { name: "Zak Foulkes", role: "AR", isOverseas: true }
   ],
@@ -86,7 +86,7 @@ const Squads = {
 const FANTASY_ROSTERS = {
   "Group 1": ["Cameron Green", "Sai Sudharsan", "Shubman Gill", "Varun Chakravarthy", "KL Rahul", "Heinrich Klaasen", "Harshit Rana", "Venkatesh Iyer", "Romario Shepherd", "Auqib Dar", "Prashant Veer", "Rahul Tewatia", "Naman Dhir", "Rasikh Dar", "Sandeep Sharma", "Suyash Sharma", "Anshul Kamboj", "Ashwani Kumar", "Rahul Tripathi", "Xavier Bartlett", "Rachin Ravindra", "David Miller"],
   "Group 2": ["Virat Kohli", "Surya Kumar Yadav", "Ishan Kishan", "Jasprit Bumrah", "Phil Salt", "Priyansh Arya", "Abhishek Porel", "Ayush Mhatre", "Dasun Shanaka", "Mayank Yadav", "Mukesh Kumar", "Digvesh Singh", "Aniket Verma", "Kagiso Rabada", "Nuwan Tushara", "Mangesh Yadav", "Kartik Sharma", "Glenn Phillips", "Vyshak Vijaykumar", "Liam Livingstone", "Cooper Connolly", "Finn Allen"],
-  "Group 3": ["Tilak Varma", "Ruturaj Gaikwad", "Abhishek Sharma", "Rishabh Pant", "Axar Patel", "Kuldeep Yadav", "Noor Ahmad", "Washington Sundar", "Jacob Bethell", "Shashank Singh", "Wanindu Hasaranga", "Nathan Ellis", "Matheesha Pathirana", "Shardul Thakur", "Marcus Stoinis", "Ramandeep Singh", "Deepak Chahar", "Aman Rao Perala", "Sherfane Rutherford", "Prince Yadav", "Tim David", "MS Dhoni"],
+  "Group 3": ["Tilak Varma", "Ruturaj Gaikwad", "Abhishek Sharma", "Rishabh Pant", "Axar Patel", "Kuldeep Yadav", "Noor Ahmad", "Washington Sundar", "Jacob Bethell", "Shashank Singh", "Wanindu Hasaranga", "Spencer Johnson", "Matheesha Pathirana", "Shardul Thakur", "Marcus Stoinis", "Ramandeep Singh", "Deepak Chahar", "Aman Rao Perala", "Sherfane Rutherford", "Prince Yadav", "Tim David", "MS Dhoni"],
   "Group 4": ["Yashasvi Jaiswal", "Shreyas Iyer", "Sunil Narine", "Vaibhav Arora", "Rajat Patidar", "Shivam Dube", "Nehal Wadhera", "Mitchell Starc", "Sai Kishore", "Nitish Rana", "Jitesh Sharma", "Dhruv Jurel", "Tushar Deshpande", "Vipraj Nigam", "Pat Cummins", "Ayush Badoni", "Zeeshan Ansari", "Mayank Markande", "Zak Foulkes", "Donovan Ferreira", "Tom Banton", "Jason Holder"],
   "Group 5": ["Devdutt Padikkal", "Mohammad Shami", "Hardik Pandya", "Travis Head", "Jos Buttler", "Prabhsimran Singh", "Yuzvendra Chahal", "Quinton de Kock", "Ravi Bishnoi", "Angkrish Raghuvanshi", "Ryan Rickelton", "Rinku Singh", "Ashutosh Sharma", "Sameer Rizvi", "Harshal Patel", "Shahbaz Ahamad", "Mitchell Marsh", "Jayant Yadav", "Anrich Nortje", "Shreyas Gopal", "Josh Hazlewood", "Shimron Hetmyer"],
   "Group 6": ["Dewald Brevis", "Vaibhav Suryavanshi", "Krunal Pandya", "Trent Boult", "Marco Jansen", "Prasidh Krishna", "Sanju Samson", "Ravindra Jadeja", "Rashid Khan", "Riyan Parag", "Josh Inglis", "Karun Nair", "Vignesh Puthur", "Eshan Malinga", "Lungi Ngidi", "Kwena Maphaka", "Urvil Patel", "Akash Singh", "Arjun Tendulkar", "Sarfaraz Khan", "Abdul Samad", "Natarajan"],
