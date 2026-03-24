@@ -9,7 +9,7 @@ import {
 import { Analytics } from "@vercel/analytics/react"
 
 // --- CONSTANTS ---
-const INITIAL_SYSTEM_TIME = new Date("2026-04-30T19:30:00");
+const INITIAL_SYSTEM_TIME = new Date();
 const MATCH_DURATION_HOURS = 3.0;
 const LOCAL_STORAGE_KEY_ROSTER = 'fantasy_roster_data';
 
