@@ -4,12 +4,12 @@ import { api } from './api';
 import {
   Trophy, Activity, Edit3, X, Save, RefreshCw, Star, ClipboardList,
   Medal, Calendar, Zap, CheckCircle2, AlertCircle, Clock, Lock, Unlock,
-  Hash, Calculator, Users, ShieldCheck, ListChecks, Settings, Flag, Check, LogOut, KeyRound, Eye, Search, DatabaseBackup, History
+  Hash, Calculator, Users, ShieldCheck, ListChecks, Settings, Flag, Check, LogOut, KeyRound, Eye, Search, DatabaseBackup, History, TrendingUp, Swords, Target
 } from 'lucide-react';
 import { Analytics } from "@vercel/analytics/react"
 
 // --- CONSTANTS ---
-const INITIAL_SYSTEM_TIME = new Date();
+const INITIAL_SYSTEM_TIME = new Date("2026-04-25T12:27:04");
 const MATCH_DURATION_HOURS = 3.0;
 const LOCAL_STORAGE_KEY_ROSTER = 'fantasy_roster_data';
 
@@ -125,13 +125,6 @@ const getRole = (playerName) => {
   return "AR";
 };
 
-const getFranchise = (playerName) => {
-  for (const team in Squads) {
-    if (Squads[team].some(p => p.name === playerName)) return team;
-  }
-  return null;
-};
-
 const isOverseasPlayer = (playerName) => {
   for (const country in Squads) {
     const player = Squads[country].find(p => p.name === playerName);
@@ -177,35 +170,34 @@ const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, 
     if (sortedPlayers.length > 1) viceCaptain = sortedPlayers[1];
   }
 
-  const franchiseCounts = {};
-  if (activeChip === 'loyalty') {
-    Object.keys(playerStats).forEach(pName => {
-      const teamId = getFranchise(pName);
-      if (teamId) {
-        franchiseCounts[teamId] = (franchiseCounts[teamId] || 0) + 1;
-      }
-    });
-  }
-
   let totalRoundPoints = 0;
   const finalContributions = {};
   Object.keys(playerStats).forEach(pName => {
     const stats = playerStats[pName];
     let capMult = 0;
-    if (pName === captain) capMult = 2;
-    else if (pName === viceCaptain) capMult = 1.5;
-
-    let chipMult = 0;
-    if ((activeChip === 'bat' && stats.role === 'BAT') || (activeChip === 'bowl' && stats.role === 'BOWL')) {
-      if (stats.maxSingleMatchPoints >= 100) chipMult = 2;
-    }
-    if (activeChip === 'pom' && chipNomination === pName && stats.wonPom) chipMult = 3;
-    if (activeChip === 'loyalty') {
-      const pFranchise = getFranchise(pName);
-      if (pFranchise && franchiseCounts[pFranchise] >= 4) {
-        chipMult = 2;
+    if (activeChip !== 'double') {
+      if (pName === captain) capMult = 2;
+      else if (pName === viceCaptain) {
+        if (activeChip === 'vcv') {
+          const cBase = playerStats[captain]?.points || 0;
+          const vcBase = playerStats[viceCaptain]?.points || 0;
+          capMult = vcBase > cBase ? 2.5 : 1.5;
+        } else {
+          capMult = 1.5;
+        }
       }
     }
+
+    let chipMult = 0;
+    if ((activeChip === 'bat' && stats.role === 'BAT') || 
+        (activeChip === 'bowl' && stats.role === 'BOWL')) {
+      if (stats.maxSingleMatchPoints >= 100) chipMult = 2;
+    }
+    if (activeChip === 'ar' && stats.role === 'AR') {
+      if (stats.maxSingleMatchPoints >= 150) chipMult = 2;
+    }
+    if (activeChip === 'pom' && chipNomination === pName && stats.wonPom) chipMult = 3;
+    if (activeChip === 'double') chipMult = 1.5;
 
     const totalMult = capMult + chipMult;
     let playerTotal = 0;
@@ -232,6 +224,23 @@ const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, 
         if (subPoints > finalContributions[lowestScorerName]) {
           totalRoundPoints += subPoints - finalContributions[lowestScorerName];
         }
+      }
+    }
+  }
+
+  if (activeChip === 'prophecy' && chipNomination) {
+    const target = Number(chipNomination);
+    if (!isNaN(target)) {
+      let basePoints = 0;
+      Object.keys(playerStats).forEach(pName => {
+        if (lineup.playingXINames.includes(pName)) {
+          basePoints += playerStats[pName].points;
+        }
+      });
+      if (basePoints >= target - 50 && basePoints <= target + 50) {
+        totalRoundPoints += 150;
+      } else {
+        totalRoundPoints -= 150;
       }
     }
   }
@@ -302,7 +311,10 @@ export default function App() {
         bowl: { used: false },
         pom: { used: false },
         supersub: { used: false },
-        loyalty: { used: false }
+        ar: { used: false },
+        vcv: { used: false },
+        double: { used: false },
+        prophecy: { used: false }
       },
       activeChip: null, // 'flexi', 'bat', 'bowl', 'pom', or null
       chipNomination: null // name of player for POM chip
@@ -752,7 +764,10 @@ export default function App() {
           pom: { used: false },
           converter: { used: false },
           supersub: { used: false },
-          loyalty: { used: false }
+          ar: { used: false },
+          vcv: { used: false },
+          double: { used: false },
+          prophecy: { used: false }
         },
         activeChip: null,
         chipNomination: null
@@ -979,9 +994,12 @@ export default function App() {
                                 {team.activeChip === 'bowl' && <Zap size={12} className="text-purple-400" />}
                                 {team.activeChip === 'pom' && <Star size={12} className="text-orange-400" />}
                                 {team.activeChip === 'supersub' && <Users size={12} className="text-indigo-400" />}
-                                {team.activeChip === 'loyalty' && <ShieldCheck size={12} className="text-emerald-400" />}
+                                {team.activeChip === 'ar' && <Swords size={12} className="text-rose-400" />}
+                                {team.activeChip === 'vcv' && <TrendingUp size={12} className="text-teal-400" />}
+                                {team.activeChip === 'double' && <ShieldCheck size={12} className="text-fuchsia-400" />}
+                                {team.activeChip === 'prophecy' && <Target size={12} className="text-rose-400" />}
                                 <span className="text-[9px] font-black uppercase text-indigo-200 tracking-wider">
-                                  {team.activeChip === 'pom' ? `POTM (${team.chipNomination})` : team.activeChip === 'supersub' ? `SUB (${team.chipNomination})` : team.activeChip === 'loyalty' ? 'Loyalty Bonus' : team.activeChip}
+                                  {team.activeChip === 'pom' ? `POTM (${team.chipNomination})` : team.activeChip === 'supersub' ? `SUB (${team.chipNomination})` : team.activeChip === 'prophecy' ? `TARGET (${team.chipNomination})` : team.activeChip === 'vcv' ? 'VC Vanguard' : team.activeChip === 'double' ? 'Double Trouble' : team.activeChip}
                                 </span>
                               </div>
                             )}
@@ -1319,9 +1337,10 @@ export default function App() {
           if (counts.BAT < 2) errors.push("Min 2 BAT");
           if (counts.BOWL < 2) errors.push("Min 2 BOWL");
           if (overseasCount > 4) errors.push(`Max 4 Overseas (${overseasCount}/4)`);
-          const isFlexi = editingTeam.activeChip === 'flexi';
-          if (!isFlexi && !editingTeam.captainName) errors.push("Select Captain");
-          if (!isFlexi && !editingTeam.viceCaptainName) errors.push("Select VC");
+          const isFlexiOrDouble = editingTeam.activeChip === 'flexi' || editingTeam.activeChip === 'double';
+          if (!isFlexiOrDouble && !editingTeam.captainName) errors.push("Select Captain");
+          if (!isFlexiOrDouble && !editingTeam.viceCaptainName) errors.push("Select VC");
+          if (editingTeam.activeChip === 'prophecy' && (!editingTeam.chipNomination || isNaN(Number(editingTeam.chipNomination)))) errors.push("Enter Valid Target Score");
           const isValid = errors.length === 0;
 
           // --- Save Function ---
@@ -1389,14 +1408,6 @@ export default function App() {
                       {(() => {
                         const assignedMatchIds = rounds.flatMap(r => r.matchIds);
                         const currentRoundMatchIds = processedMatchIds.filter(id => !assignedMatchIds.includes(id));
-
-                        const squadFranchiseCounts = {};
-                        if (editingTeam.activeChip === 'loyalty') {
-                          editingTeam.playingXINames.forEach(n => {
-                            const f = getFranchise(n);
-                            if (f) squadFranchiseCounts[f] = (squadFranchiseCounts[f] || 0) + 1;
-                          });
-                        }
 
                         // Calculate Round Stats for each player for Chip Indicators
                         const playerRoundStats = {};
@@ -1480,8 +1491,8 @@ export default function App() {
                                 <div>
                                   <div className="flex items-center gap-2">
                                     <p className="font-bold text-white text-sm uppercase">{p.name} {isOverseasPlayer(p.name) && <span className="text-[10px]" title="Overseas Player">✈️</span>}</p>
-                                    {isCap && <span className="bg-yellow-500 text-black text-[8px] font-black px-1.5 rounded">C (2x)</span>}
-                                    {isVC && <span className="bg-indigo-500 text-white text-[8px] font-black px-1.5 rounded">VC (1.5x)</span>}
+                                    {isCap && editingTeam.activeChip !== 'double' && <span className="bg-yellow-500 text-black text-[8px] font-black px-1.5 rounded">C (2x)</span>}
+                                    {isVC && editingTeam.activeChip !== 'double' && <span className="bg-indigo-500 text-white text-[8px] font-black px-1.5 rounded">VC (1.5x)</span>}
 
                                     {/* Chip Indicators */}
                                     {editingTeam.activeChip === 'flexi' && p.name === flexiC && (
@@ -1499,6 +1510,26 @@ export default function App() {
                                         <Activity size={8} /> BOOST (2x)
                                       </span>
                                     )}
+                                    {editingTeam.activeChip === 'ar' && role === 'AR' && playerRoundStats[p.name].maxSingle >= 100 && (
+                                      <span className="bg-emerald-500 text-white text-[8px] font-black px-1.5 rounded flex items-center gap-1">
+                                        <Swords size={8} /> BOOST (2x)
+                                      </span>
+                                    )}
+                                    {editingTeam.activeChip === 'vcv' && isVC && (
+                                      <span className="bg-teal-500 text-white text-[8px] font-black px-1.5 rounded flex items-center gap-1">
+                                        <TrendingUp size={8} /> VCV BOOST
+                                      </span>
+                                    )}
+                                    {editingTeam.activeChip === 'double' && isInXI && (
+                                      <span className="bg-fuchsia-600 text-white text-[8px] font-black px-1.5 rounded flex items-center gap-1">
+                                        <ShieldCheck size={8} /> DOUBLE (1.5x)
+                                      </span>
+                                    )}
+                                    {editingTeam.activeChip === 'prophecy' && isInXI && (
+                                      <span className="bg-rose-600 text-white text-[8px] font-black px-1.5 rounded flex items-center gap-1">
+                                        <Target size={8} /> PROPHECY ACTIVE
+                                      </span>
+                                    )}
                                     {editingTeam.activeChip === 'bowl' && role === 'BOWL' && playerRoundStats[p.name].maxSingle >= 100 && (
                                       <span className="bg-emerald-500 text-white text-[8px] font-black px-1.5 rounded flex items-center gap-1">
                                         <Zap size={8} /> BOOST (2x)
@@ -1514,11 +1545,6 @@ export default function App() {
                                         <Users size={8} /> SUB NOMINEE
                                       </span>
                                     )}
-                                    {editingTeam.activeChip === 'loyalty' && isInXI && squadFranchiseCounts[playerTeam] >= 4 && (
-                                      <span className="bg-emerald-500 text-white text-[8px] font-black px-1.5 rounded flex items-center gap-1">
-                                        <ShieldCheck size={8} /> LOYALTY (2x)
-                                      </span>
-                                    )}
                                   </div>
                                   <div className="flex items-center gap-2 text-[8px] text-slate-400 font-black uppercase">
                                     <span>{role}</span>
@@ -1531,7 +1557,7 @@ export default function App() {
                                   </div>
                                 </div>
                               </div>
-                              {isInXI && (!isLineupLocked || isAdmin) && editingTeam.activeChip !== 'flexi' && (
+                              {isInXI && (!isLineupLocked || isAdmin) && editingTeam.activeChip !== 'flexi' && editingTeam.activeChip !== 'double' && (
                                 <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                                   <button onClick={() => setEditingTeam({ ...editingTeam, captainName: p.name, viceCaptainName: isVC ? "" : editingTeam.viceCaptainName })} className={`w-6 h-6 rounded text-[8px] font-black ${isCap ? 'bg-yellow-500 text-black' : 'bg-black/30 text-slate-500'}`}>C</button>
                                   <button onClick={() => setEditingTeam({ ...editingTeam, viceCaptainName: p.name, captainName: isCap ? "" : editingTeam.captainName })} className={`w-6 h-6 rounded text-[8px] font-black ${isVC ? 'bg-indigo-500 text-white' : 'bg-black/30 text-slate-500'}`}>VC</button>
@@ -1552,9 +1578,12 @@ export default function App() {
                           { id: 'flexi', label: 'Flexi Cap', icon: <Medal size={14} /> },
                           { id: 'bat', label: 'Bat Boost', icon: <Activity size={14} /> },
                           { id: 'bowl', label: 'Bowl Boost', icon: <Zap size={14} /> },
+                          { id: 'ar', label: 'AR Boost', icon: <Swords size={14} /> },
                           { id: 'pom', label: 'POTM Boost', icon: <Star size={14} /> },
                           { id: 'supersub', label: 'Super Sub', icon: <Users size={14} /> },
-                          { id: 'loyalty', label: 'Loyalty Bonus', icon: <ShieldCheck size={14} /> },
+                          { id: 'vcv', label: 'VC Vanguard', icon: <TrendingUp size={14} /> },
+                          { id: 'double', label: 'Double', icon: <ShieldCheck size={14} /> },
+                          { id: 'prophecy', label: 'The Prophecy', icon: <Target size={14} /> },
                           { id: 'converter', label: 'Converter', icon: <RefreshCw size={14} /> }
                         ].map(chip => {
                           const isUsed = editingTeam.chips[chip.id]?.used;
@@ -1572,8 +1601,8 @@ export default function App() {
                                     ...editingTeam,
                                     activeChip: chip.id,
                                     chipNomination: null,
-                                    captainName: chip.id === 'flexi' ? "" : editingTeam.captainName,
-                                    viceCaptainName: chip.id === 'flexi' ? "" : editingTeam.viceCaptainName
+                                    captainName: (chip.id === 'flexi' || chip.id === 'double') ? "" : editingTeam.captainName,
+                                    viceCaptainName: (chip.id === 'flexi' || chip.id === 'double') ? "" : editingTeam.viceCaptainName
                                   });
                                 }
                               }}
@@ -1595,24 +1624,38 @@ export default function App() {
                         })}
                       </div>
 
-                      {(editingTeam.activeChip === 'pom' || editingTeam.activeChip === 'supersub') && (
+                      {(editingTeam.activeChip === 'pom' || editingTeam.activeChip === 'supersub' || editingTeam.activeChip === 'prophecy') && (
                         <div className="mb-6 animate-in slide-in-from-top-2 fade-in duration-300">
                           <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">
-                            {editingTeam.activeChip === 'supersub' ? 'Nominate Bench Player' : 'Nominate Player'}
+                            {editingTeam.activeChip === 'supersub' ? 'Nominate Bench Player' : editingTeam.activeChip === 'prophecy' ? 'Target Score Prediction' : 'Nominate Player'}
                           </h4>
-                          <select
-                            value={editingTeam.chipNomination || ""}
-                            onChange={(e) => setEditingTeam({ ...editingTeam, chipNomination: e.target.value })}
-                            disabled={isLineupLocked && !isAdmin}
-                            className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-indigo-500 transition-all uppercase"
-                          >
-                            <option value="">Select a Player...</option>
-                            {editingTeam.players
-                              .filter(p => editingTeam.activeChip === 'supersub' ? !editingTeam.playingXINames.includes(p.name) : true)
-                              .map(p => (
-                              <option key={p.name} value={p.name}>{p.name}</option>
-                            ))}
-                          </select>
+                          {editingTeam.activeChip === 'prophecy' ? (
+                            <div className="space-y-2">
+                              <input
+                                type="number"
+                                value={editingTeam.chipNomination || ""}
+                                onChange={(e) => setEditingTeam({ ...editingTeam, chipNomination: e.target.value })}
+                                disabled={isLineupLocked && !isAdmin}
+                                placeholder="e.g. 450"
+                                className="w-full bg-slate-800 border border-white/10 rounded-xl p-4 text-center text-xl font-black font-mono text-rose-400 outline-none focus:border-rose-500 transition-all"
+                              />
+                              <p className="text-[9px] text-slate-500 font-bold uppercase text-center focus:text-rose-400">Must land within ±50 points of base score</p>
+                            </div>
+                          ) : (
+                            <select
+                              value={editingTeam.chipNomination || ""}
+                              onChange={(e) => setEditingTeam({ ...editingTeam, chipNomination: e.target.value })}
+                              disabled={isLineupLocked && !isAdmin}
+                              className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-indigo-500 transition-all uppercase"
+                            >
+                              <option value="">Select a Player...</option>
+                              {editingTeam.players
+                                .filter(p => editingTeam.activeChip === 'supersub' ? !editingTeam.playingXINames.includes(p.name) : true)
+                                .map(p => (
+                                <option key={p.name} value={p.name}>{p.name}</option>
+                              ))}
+                            </select>
+                          )}
                         </div>
                       )}
 
