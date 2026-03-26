@@ -37,7 +37,7 @@ const Squads = {
   ],
   "KKR": [
     { name: "Finn Allen", role: "WK", isOverseas: true }, { name: "Tejasvi Singh", role: "WK", isOverseas: false }, { name: "Tim Seifert", role: "WK", isOverseas: true },
-    { name: "Vaibhav Arora", role: "BOWL", isOverseas: false }, { name: "Matheesha Pathirana", role: "BOWL", isOverseas: true }, { name: "Kartik Tyagi", role: "BOWL", isOverseas: false }, { name: "Prashant Solanki", role: "BOWL", isOverseas: false }, { name: "Saurabh Dubey", role: "BOWL", isOverseas: false }, { name: "Navdeep Saini", role: "BOWL", isOverseas: false }, { name: "Umran Malik", role: "BOWL", isOverseas: false }, { name: "Sunil Narine", role: "BOWL", isOverseas: true }, { name: "Varun Chakravarthy", role: "BOWL", isOverseas: false },{ name: "Blessing Muzarabani", role: "BOWL", isOverseas: false },
+    { name: "Vaibhav Arora", role: "BOWL", isOverseas: false }, { name: "Matheesha Pathirana", role: "BOWL", isOverseas: true }, { name: "Kartik Tyagi", role: "BOWL", isOverseas: false }, { name: "Prashant Solanki", role: "BOWL", isOverseas: false }, { name: "Saurabh Dubey", role: "BOWL", isOverseas: false }, { name: "Navdeep Saini", role: "BOWL", isOverseas: false }, { name: "Umran Malik", role: "BOWL", isOverseas: false }, { name: "Sunil Narine", role: "BOWL", isOverseas: true }, { name: "Varun Chakravarthy", role: "BOWL", isOverseas: false }, { name: "Blessing Muzarabani", role: "BOWL", isOverseas: false },
     { name: "Ajinkya Rahane", role: "BAT", isOverseas: false }, { name: "Rinku Singh", role: "BAT", isOverseas: false }, { name: "Angkrish Raghuvanshi", role: "BAT", isOverseas: false }, { name: "Manish Pandey", role: "BAT", isOverseas: false }, { name: "Cameron Green", role: "BAT", isOverseas: true }, { name: "Rahul Tripathi", role: "BAT", isOverseas: false }, { name: "Rovman Powell", role: "BAT", isOverseas: true },
     { name: "Anukul Roy", role: "AR", isOverseas: false }, { name: "Sarthak Ranjan", role: "AR", isOverseas: false }, { name: "Daksh Kamra", role: "AR", isOverseas: false }, { name: "Rachin Ravindra", role: "AR", isOverseas: true }, { name: "Ramandeep Singh", role: "AR", isOverseas: false }
   ],
@@ -113,7 +113,57 @@ const MATCH_SCHEDULE = [
   { id: 17, teams: "PBKS vs SRH", countries: ["PBKS", "SRH"], start: "2026-04-11T15:30:00" },
   { id: 18, teams: "CSK vs DC", countries: ["CSK", "DC"], start: "2026-04-11T19:30:00" },
   { id: 19, teams: "LSG vs GT", countries: ["LSG", "GT"], start: "2026-04-12T15:30:00" },
-  { id: 20, teams: "MI vs RCB", countries: ["MI", "RCB"], start: "2026-04-12T19:30:00" }
+  { id: 20, teams: "MI vs RCB", countries: ["MI", "RCB"], start: "2026-04-12T19:30:00" },
+  { id: 21, teams: "RR vs SRH", countries: ["RR", "SRH"], start: "2026-04-13T19:30:00" },
+  { id: 22, teams: "KKR vs CSK", countries: ["KKR", "CSK"], start: "2026-04-14T19:30:00" },
+  { id: 23, teams: "LSG vs RCB", countries: ["LSG", "RCB"], start: "2026-04-15T19:30:00" },
+  { id: 24, teams: "PBKS vs MI", countries: ["PBKS", "MI"], start: "2026-04-16T19:30:00" },
+  { id: 25, teams: "KKR vs GT", countries: ["KKR", "GT"], start: "2026-04-17T19:30:00" },
+  { id: 26, teams: "DC vs RCB", countries: ["DC", "RCB"], start: "2026-04-18T15:30:00" },
+  { id: 27, teams: "CSK vs SRH", countries: ["CSK", "SRH"], start: "2026-04-18T19:30:00" },
+  { id: 28, teams: "RR vs KKR", countries: ["RR", "KKR"], start: "2026-04-19T15:30:00" },
+  { id: 29, teams: "LSG vs PBKS", countries: ["LSG", "PBKS"], start: "2026-04-19T19:30:00" },
+  { id: 30, teams: "MI vs GT", countries: ["MI", "GT"], start: "2026-04-20T19:30:00" },
+  { id: 31, teams: "DC vs SRH", countries: ["DC", "SRH"], start: "2026-04-21T19:30:00" },
+  { id: 32, teams: "RR vs LSG", countries: ["RR", "LSG"], start: "2026-04-22T19:30:00" },
+  { id: 33, teams: "CSK vs MI", countries: ["CSK", "MI"], start: "2026-04-23T19:30:00" },
+  { id: 34, teams: "GT vs RCB", countries: ["GT", "RCB"], start: "2026-04-24T19:30:00" },
+  { id: 35, teams: "PBKS vs DC", countries: ["PBKS", "DC"], start: "2026-04-25T15:30:00" },
+  { id: 36, teams: "SRH vs RR", countries: ["SRH", "RR"], start: "2026-04-25T19:30:00" },
+  { id: 37, teams: "CSK vs GT", countries: ["CSK", "GT"], start: "2026-04-26T15:30:00" },
+  { id: 38, teams: "KKR vs LSG", countries: ["KKR", "LSG"], start: "2026-04-26T19:30:00" },
+  { id: 39, teams: "RCB vs DC", countries: ["RCB", "DC"], start: "2026-04-27T19:30:00" },
+  { id: 40, teams: "RR vs PBKS", countries: ["RR", "PBKS"], start: "2026-04-28T19:30:00" },
+  { id: 41, teams: "SRH vs MI", countries: ["SRH", "MI"], start: "2026-04-29T19:30:00" },
+  { id: 42, teams: "RCB vs GT", countries: ["RCB", "GT"], start: "2026-04-30T19:30:00" },
+  { id: 43, teams: "DC vs RR", countries: ["DC", "RR"], start: "2026-05-01T19:30:00" },
+  { id: 44, teams: "MI vs CSK", countries: ["MI", "CSK"], start: "2026-05-02T19:30:00" },
+  { id: 45, teams: "KKR vs SRH", countries: ["KKR", "SRH"], start: "2026-05-03T15:30:00" },
+  { id: 46, teams: "PBKS vs GT", countries: ["PBKS", "GT"], start: "2026-05-03T19:30:00" },
+  { id: 47, teams: "LSG vs MI", countries: ["LSG", "MI"], start: "2026-05-04T19:30:00" },
+  { id: 48, teams: "CSK vs DC", countries: ["CSK", "DC"], start: "2026-05-05T19:30:00" },
+  { id: 49, teams: "PBKS vs SRH", countries: ["PBKS", "SRH"], start: "2026-05-06T19:30:00" },
+  { id: 50, teams: "RCB vs LSG", countries: ["RCB", "LSG"], start: "2026-05-07T19:30:00" },
+  { id: 51, teams: "KKR vs DC", countries: ["KKR", "DC"], start: "2026-05-08T19:30:00" },
+  { id: 52, teams: "GT vs RR", countries: ["GT", "RR"], start: "2026-05-09T19:30:00" },
+  { id: 53, teams: "LSG vs CSK", countries: ["LSG", "CSK"], start: "2026-05-10T15:30:00" },
+  { id: 54, teams: "MI vs RCB", countries: ["MI", "RCB"], start: "2026-05-10T19:30:00" },
+  { id: 55, teams: "DC vs PBKS", countries: ["DC", "PBKS"], start: "2026-05-11T19:30:00" },
+  { id: 56, teams: "SRH vs GT", countries: ["SRH", "GT"], start: "2026-05-12T19:30:00" },
+  { id: 57, teams: "KKR vs RCB", countries: ["KKR", "RCB"], start: "2026-05-13T19:30:00" },
+  { id: 58, teams: "MI vs PBKS", countries: ["MI", "PBKS"], start: "2026-05-14T19:30:00" },
+  { id: 59, teams: "CSK vs LSG", countries: ["CSK", "LSG"], start: "2026-05-15T19:30:00" },
+  { id: 60, teams: "GT vs KKR", countries: ["GT", "KKR"], start: "2026-05-16T19:30:00" },
+  { id: 61, teams: "RCB vs PBKS", countries: ["RCB", "PBKS"], start: "2026-05-17T15:30:00" },
+  { id: 62, teams: "RR vs DC", countries: ["RR", "DC"], start: "2026-05-17T19:30:00" },
+  { id: 63, teams: "SRH vs CSK", countries: ["SRH", "CSK"], start: "2026-05-18T19:30:00" },
+  { id: 64, teams: "LSG vs RR", countries: ["LSG", "RR"], start: "2026-05-19T19:30:00" },
+  { id: 65, teams: "MI vs KKR", countries: ["MI", "KKR"], start: "2026-05-20T19:30:00" },
+  { id: 66, teams: "GT vs CSK", countries: ["GT", "CSK"], start: "2026-05-21T19:30:00" },
+  { id: 67, teams: "RCB vs SRH", countries: ["RCB", "SRH"], start: "2026-05-22T19:30:00" },
+  { id: 68, teams: "PBKS vs LSG", countries: ["PBKS", "LSG"], start: "2026-05-23T19:30:00" },
+  { id: 69, teams: "RR vs MI", countries: ["RR", "MI"], start: "2026-05-24T15:30:00" },
+  { id: 70, teams: "DC vs KKR", countries: ["DC", "KKR"], start: "2026-05-24T19:30:00" }
 ];
 
 // Helper: Get Role
@@ -166,7 +216,7 @@ const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, 
       if (diff !== 0) return diff;
       return (playerRegistry[b]?.points || 0) - (playerRegistry[a]?.points || 0);
     });
-    
+
     if (activeChip === 'best11') {
       const top11 = sortedPlayers.slice(0, 11);
       Object.keys(playerStats).forEach(p => {
@@ -199,8 +249,8 @@ const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, 
     }
 
     let chipMult = 0;
-    if ((activeChip === 'bat' && stats.role === 'BAT') || 
-        (activeChip === 'bowl' && stats.role === 'BOWL')) {
+    if ((activeChip === 'bat' && stats.role === 'BAT') ||
+      (activeChip === 'bowl' && stats.role === 'BOWL')) {
       if (stats.maxSingleMatchPoints >= 100) chipMult = 2;
     }
     if (activeChip === 'pom' && chipNomination === pName && stats.wonPom) chipMult = 3;
@@ -221,7 +271,7 @@ const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, 
     if (!lineup.playingXINames.includes(chipNomination)) {
       const starterNames = Object.keys(finalContributions);
       if (starterNames.length > 0) {
-        const lowestScorerName = starterNames.reduce((a, b) => 
+        const lowestScorerName = starterNames.reduce((a, b) =>
           finalContributions[a] < finalContributions[b] ? a : b
         );
         let subPoints = 0;
@@ -1677,8 +1727,8 @@ export default function App() {
                               {editingTeam.players
                                 .filter(p => editingTeam.activeChip === 'supersub' ? !editingTeam.playingXINames.includes(p.name) : true)
                                 .map(p => (
-                                <option key={p.name} value={p.name}>{p.name}</option>
-                              ))}
+                                  <option key={p.name} value={p.name}>{p.name}</option>
+                                ))}
                             </select>
                           )}
                         </div>
