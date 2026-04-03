@@ -342,6 +342,7 @@ export default function App() {
   const [resolvingMatch, setResolvingMatch] = useState(null);
   const [manualPoints, setManualPoints] = useState({});
   const [manualPom, setManualPom] = useState("");
+  const [matchPlayerSearch, setMatchPlayerSearch] = useState("");
   const [systemTime, setSystemTime] = useState(INITIAL_SYSTEM_TIME);
   const [loading, setLoading] = useState(true);
 
@@ -458,9 +459,11 @@ export default function App() {
       } else {
         setManualPom("");
       }
+      setMatchPlayerSearch("");
     } else {
       setManualPoints({});
       setManualPom("");
+      setMatchPlayerSearch("");
     }
   }, [resolvingMatch]);
 
@@ -1307,6 +1310,20 @@ export default function App() {
                 </div>
                 <button onClick={() => setResolvingMatch(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400"><X size={28} /></button>
               </div>
+              
+              <div className="px-8 pt-6 pb-2">
+                <div className="relative w-full">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search player to score..."
+                    value={matchPlayerSearch}
+                    onChange={(e) => setMatchPlayerSearch(e.target.value)}
+                    className="w-full bg-black/20 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-sm font-bold text-white placeholder-slate-600 focus:border-blue-500 outline-none uppercase tracking-wider"
+                  />
+                </div>
+              </div>
+
               <div className="flex-grow overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-white/10">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {resolvingMatch.countries.map(countryCode => (
@@ -1316,7 +1333,9 @@ export default function App() {
                         <h4 className="text-lg font-black text-white uppercase">{countryCode} Squad</h4>
                       </div>
                       <div className="space-y-2">
-                        {(Squads[countryCode] || []).map(p => (
+                        {(Squads[countryCode] || [])
+                          .filter(p => !matchPlayerSearch || p.name.toLowerCase().includes(matchPlayerSearch.toLowerCase()))
+                          .map(p => (
                           <div key={p.name} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
                             <div>
                               <p className="font-bold text-white text-sm">{p.name} {p.isOverseas && <span className="text-[10px]" title="Overseas Player">✈️</span>}</p>
