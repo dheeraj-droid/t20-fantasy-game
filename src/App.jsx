@@ -266,10 +266,17 @@ const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, 
     totalRoundPoints += playerTotal;
     finalContributions[pName] = playerTotal;
   });
+  let replacedPlayer = null;
 
   if (activeChip === 'supersub' && chipNomination) {
     if (!lineup.playingXINames.includes(chipNomination)) {
-      const starterNames = Object.keys(finalContributions);
+      let starterNames = Object.keys(finalContributions);
+      const overseasStartersCount = lineup.playingXINames.filter(name => isOverseasPlayer(name)).length;
+      
+      if (isOverseasPlayer(chipNomination) && overseasStartersCount >= 4) {
+        starterNames = starterNames.filter(name => isOverseasPlayer(name));
+      }
+
       if (starterNames.length > 0) {
         const lowestScorerName = starterNames.reduce((a, b) =>
           finalContributions[a] < finalContributions[b] ? a : b
@@ -280,6 +287,7 @@ const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, 
         });
         if (subPoints > finalContributions[lowestScorerName]) {
           totalRoundPoints += subPoints - finalContributions[lowestScorerName];
+          replacedPlayer = lowestScorerName;
         }
       }
     }
@@ -302,7 +310,7 @@ const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, 
     }
   }
 
-  return totalRoundPoints;
+  return { score: totalRoundPoints, replacedPlayer };
 };
 
 export default function App() {
@@ -484,7 +492,7 @@ export default function App() {
     rounds.forEach(round => {
       const lineup = round.lineups[team.id];
       if (lineup) {
-        totalScore += calculateRoundScore(round.matchIds, lineup, lineup.activeChip, lineup.chipNomination, team, matchResults, matchDetails, matchSubmissionTimes, playerRegistry);
+        totalScore += calculateRoundScore(round.matchIds, lineup, lineup.activeChip, lineup.chipNomination, team, matchResults, matchDetails, matchSubmissionTimes, playerRegistry).score;
       }
     });
 
@@ -496,7 +504,7 @@ export default function App() {
         const lastLock = [...lineupHistory].reverse().find(e => e.type === 'LOCK');
         if (lastLock?.lineups?.[team.id]) lineup = lastLock.lineups[team.id];
       }
-      totalScore += calculateRoundScore(pendingMatchIds, lineup, lineup.activeChip, lineup.chipNomination, team, matchResults, matchDetails, matchSubmissionTimes, playerRegistry);
+      totalScore += calculateRoundScore(pendingMatchIds, lineup, lineup.activeChip, lineup.chipNomination, team, matchResults, matchDetails, matchSubmissionTimes, playerRegistry).score;
     }
 
     return totalScore;
@@ -727,7 +735,7 @@ export default function App() {
       updatedRounds.forEach(round => {
         const lineup = round.lineups[team.id];
         if (lineup) {
-          totalScore += calculateRoundScore(round.matchIds, lineup, lineup.activeChip, lineup.chipNomination, team, matchResults, matchDetails, matchSubmissionTimes, playerRegistry);
+          totalScore += calculateRoundScore(round.matchIds, lineup, lineup.activeChip, lineup.chipNomination, team, matchResults, matchDetails, matchSubmissionTimes, playerRegistry).score;
         }
       });
 
@@ -1487,6 +1495,9 @@ export default function App() {
                         const assignedMatchIds = rounds.flatMap(r => r.matchIds);
                         const currentRoundMatchIds = processedMatchIds.filter(id => !assignedMatchIds.includes(id));
 
+                        const currentRoundData = calculateRoundScore(currentRoundMatchIds, editingTeam, editingTeam.activeChip, editingTeam.chipNomination, editingTeam, matchResults, matchDetails, matchSubmissionTimes, playerRegistry);
+                        const replacedPlayer = currentRoundData.replacedPlayer;
+
                         // Calculate Round Stats for each player for Chip Indicators
                         const playerRoundStats = {};
                         editingTeam.players.forEach(p => {
@@ -1639,6 +1650,11 @@ export default function App() {
                                         <Users size={8} /> SUB NOMINEE
                                       </span>
                                     )}
+                                    {editingTeam.activeChip === 'supersub' && p.name === replacedPlayer && (
+                                      <span className="bg-red-500 text-white text-[8px] font-black px-1.5 rounded flex items-center gap-1">
+                                        <Users size={8} /> WILL BE REPLACED
+                                      </span>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-2 text-[8px] text-slate-400 font-black uppercase">
                                     <span>{role}</span>
@@ -1736,19 +1752,24 @@ export default function App() {
                               <p className="text-[9px] text-slate-500 font-bold uppercase text-center focus:text-rose-400">Must land within ±50 points of base score</p>
                             </div>
                           ) : (
-                            <select
-                              value={editingTeam.chipNomination || ""}
-                              onChange={(e) => setEditingTeam({ ...editingTeam, chipNomination: e.target.value })}
-                              disabled={isLineupLocked && !isAdmin}
-                              className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-indigo-500 transition-all uppercase"
-                            >
-                              <option value="">Select a Player...</option>
-                              {editingTeam.players
-                                .filter(p => editingTeam.activeChip === 'supersub' ? !editingTeam.playingXINames.includes(p.name) : true)
-                                .map(p => (
-                                  <option key={p.name} value={p.name}>{p.name}</option>
-                                ))}
-                            </select>
+                            <div className="space-y-2">
+                              <select
+                                value={editingTeam.chipNomination || ""}
+                                onChange={(e) => setEditingTeam({ ...editingTeam, chipNomination: e.target.value })}
+                                disabled={isLineupLocked && !isAdmin}
+                                className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-xs font-bold text-white outline-none focus:border-indigo-500 transition-all uppercase"
+                              >
+                                <option value="">Select a Player...</option>
+                                {editingTeam.players
+                                  .filter(p => editingTeam.activeChip === 'supersub' ? !editingTeam.playingXINames.includes(p.name) : true)
+                                  .map(p => (
+                                    <option key={p.name} value={p.name}>{p.name}</option>
+                                  ))}
+                              </select>
+                              {editingTeam.activeChip === 'supersub' && isOverseasPlayer(editingTeam.chipNomination) && editingTeam.playingXINames.filter(n => isOverseasPlayer(n)).length === 4 && (
+                                <p className="text-[9px] text-indigo-400 font-bold uppercase text-center">Overseas sub will only replace an overseas starter (max 4 overseas limit)</p>
+                              )}
+                            </div>
                           )}
                         </div>
                       )}
@@ -1799,7 +1820,7 @@ export default function App() {
                               const lineup = round.lineups[editingTeam.id];
                               if (!lineup) return null;
 
-                              const roundScore = calculateRoundScore(
+                              const roundResult = calculateRoundScore(
                                 round.matchIds,
                                 lineup,
                                 lineup.activeChip,
@@ -1810,6 +1831,8 @@ export default function App() {
                                 matchSubmissionTimes,
                                 playerRegistry
                               );
+                              const roundScore = roundResult.score;
+                              const substitutedPlayer = roundResult.replacedPlayer;
 
                               const chipIcons = {
                                 flexi: <Medal size={10} />,
@@ -1828,6 +1851,11 @@ export default function App() {
                                         <>
                                           <span className="text-indigo-400">{chipIcons[lineup.activeChip]}</span>
                                           <span className="text-[10px] font-bold text-slate-300 uppercase">{lineup.activeChip}</span>
+                                          {lineup.activeChip === 'supersub' && substitutedPlayer && (
+                                            <span className="text-[8px] font-bold text-slate-400 uppercase italic ml-2">
+                                              (Subbed: {substitutedPlayer})
+                                            </span>
+                                          )}
                                         </>
                                       ) : (
                                         <span className="text-[10px] font-bold text-slate-500 uppercase">Standard</span>
