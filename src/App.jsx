@@ -303,7 +303,7 @@ const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, 
         }
       });
       if (basePoints >= target - 50 && basePoints <= target + 50) {
-        totalRoundPoints += 250;
+        totalRoundPoints += 150;
       } else {
         totalRoundPoints -= 150;
       }
