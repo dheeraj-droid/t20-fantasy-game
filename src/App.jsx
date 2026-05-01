@@ -1534,6 +1534,10 @@ export default function App() {
                           best11Names = sortedSquad.slice(0, 11).map(p => p.name);
                         }
 
+                        const cBase = playerRoundStats[editingTeam.captainName]?.points || 0;
+                        const vcBase = playerRoundStats[editingTeam.viceCaptainName]?.points || 0;
+                        const vcvApplicable = vcBase > cBase;
+
                         return editingTeam.players.map((p, idx) => {
 
                           const isInXI = editingTeam.activeChip === 'best11' ? best11Names.includes(p.name) : editingTeam.playingXINames.includes(p.name);
@@ -1621,8 +1625,8 @@ export default function App() {
                                       </span>
                                     )}
                                     {editingTeam.activeChip === 'vcv' && isVC && (
-                                      <span className="bg-teal-500 text-white text-[8px] font-black px-1.5 rounded flex items-center gap-1">
-                                        <TrendingUp size={8} /> VCV BOOST
+                                      <span className={`${vcvApplicable ? 'bg-green-500' : 'bg-red-500'} text-white text-[8px] font-black px-1.5 rounded flex items-center gap-1`}>
+                                        <TrendingUp size={8} /> VCV BOOST {vcvApplicable ? '(2.5x)' : ''}
                                       </span>
                                     )}
                                     {editingTeam.activeChip === 'double' && isInXI && (
