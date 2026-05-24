@@ -163,7 +163,11 @@ const MATCH_SCHEDULE = [
   { id: 67, teams: "RCB vs SRH", countries: ["RCB", "SRH"], start: "2026-05-22T19:30:00" },
   { id: 68, teams: "PBKS vs LSG", countries: ["PBKS", "LSG"], start: "2026-05-23T19:30:00" },
   { id: 69, teams: "RR vs MI", countries: ["RR", "MI"], start: "2026-05-24T15:30:00" },
-  { id: 70, teams: "DC vs KKR", countries: ["DC", "KKR"], start: "2026-05-24T19:30:00" }
+  { id: 70, teams: "DC vs KKR", countries: ["DC", "KKR"], start: "2026-05-24T19:30:00" },
+  { id: 71, teams: "Qualifier-1", countries: ["RCB", "GT"], start: "2026-05-26T19:30:00" },
+  { id: 72, teams: "Eliminator", countries: ["SRH", "RR"], start: "2026-05-27T19:30:00" },
+  { id: 73, teams: "Qualifier-2", countries: ["TBD", "TBD"], start: "2026-05-29T19:30:00" },
+  { id: 74, teams: "Cuppu-Lollipop", countries: ["CSK", "WIN"], start: "2026-05-31T19:30:00" }
 ];
 
 // Helper: Get Role
@@ -272,7 +276,7 @@ const calculateRoundScore = (roundMatchIds, lineup, activeChip, chipNomination, 
     if (!lineup.playingXINames.includes(chipNomination)) {
       let starterNames = Object.keys(finalContributions);
       const overseasStartersCount = lineup.playingXINames.filter(name => isOverseasPlayer(name)).length;
-      
+
       if (isOverseasPlayer(chipNomination) && overseasStartersCount >= 4) {
         starterNames = starterNames.filter(name => isOverseasPlayer(name));
       }
@@ -1318,7 +1322,7 @@ export default function App() {
                 </div>
                 <button onClick={() => setResolvingMatch(null)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-400"><X size={28} /></button>
               </div>
-              
+
               <div className="px-8 pt-6 pb-2">
                 <div className="relative w-full">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
@@ -1344,22 +1348,22 @@ export default function App() {
                         {(Squads[countryCode] || [])
                           .filter(p => !matchPlayerSearch || p.name.toLowerCase().includes(matchPlayerSearch.toLowerCase()))
                           .map(p => (
-                          <div key={p.name} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
-                            <div>
-                              <p className="font-bold text-white text-sm">{p.name} {p.isOverseas && <span className="text-[10px]" title="Overseas Player">✈️</span>}</p>
-                              <p className="text-[8px] text-slate-500 font-black uppercase">{p.role} • Hist: {playerRegistry[p.name]?.points || 0}</p>
+                            <div key={p.name} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
+                              <div>
+                                <p className="font-bold text-white text-sm">{p.name} {p.isOverseas && <span className="text-[10px]" title="Overseas Player">✈️</span>}</p>
+                                <p className="text-[8px] text-slate-500 font-black uppercase">{p.role} • Hist: {playerRegistry[p.name]?.points || 0}</p>
+                              </div>
+                              <input
+                                type="number"
+                                disabled={!isAdmin}
+                                onWheel={(e) => e.target.blur()}
+                                className={`w-16 bg-black/40 border border-white/10 rounded-lg p-2 text-right text-white font-mono text-sm font-bold focus:border-blue-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${!isAdmin ? 'opacity-50 cursor-default' : ''}`}
+                                placeholder="-"
+                                value={manualPoints[p.name] || ""}
+                                onChange={(e) => isAdmin && setManualPoints({ ...manualPoints, [p.name]: e.target.value })}
+                              />
                             </div>
-                            <input
-                              type="number"
-                              disabled={!isAdmin}
-                              onWheel={(e) => e.target.blur()}
-                              className={`w-16 bg-black/40 border border-white/10 rounded-lg p-2 text-right text-white font-mono text-sm font-bold focus:border-blue-500 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${!isAdmin ? 'opacity-50 cursor-default' : ''}`}
-                              placeholder="-"
-                              value={manualPoints[p.name] || ""}
-                              onChange={(e) => isAdmin && setManualPoints({ ...manualPoints, [p.name]: e.target.value })}
-                            />
-                          </div>
-                        ))}
+                          ))}
                       </div>
                     </div>
                   ))}
