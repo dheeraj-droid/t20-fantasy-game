@@ -166,8 +166,8 @@ const MATCH_SCHEDULE = [
   { id: 70, teams: "DC vs KKR", countries: ["DC", "KKR"], start: "2026-05-24T19:30:00" },
   { id: 71, teams: "Qualifier-1", countries: ["RCB", "GT"], start: "2026-05-26T19:30:00" },
   { id: 72, teams: "Eliminator", countries: ["SRH", "RR"], start: "2026-05-27T19:30:00" },
-  { id: 73, teams: "Qualifier-2", countries: ["TBD", "TBD"], start: "2026-05-29T19:30:00" },
-  { id: 74, teams: "Cuppu-Lollipop", countries: ["CSK", "WIN"], start: "2026-05-31T19:30:00" }
+  { id: 73, teams: "Qualifier-2", countries: ["RR", "GT"], start: "2026-05-29T19:30:00" },
+  { id: 74, teams: "Cuppu-Lollipop", countries: ["RCB", "RR"], start: "2026-05-31T19:30:00" }
 ];
 
 // Helper: Get Role
