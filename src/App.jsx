@@ -167,7 +167,7 @@ const MATCH_SCHEDULE = [
   { id: 71, teams: "Qualifier-1", countries: ["RCB", "GT"], start: "2026-05-26T19:30:00" },
   { id: 72, teams: "Eliminator", countries: ["SRH", "RR"], start: "2026-05-27T19:30:00" },
   { id: 73, teams: "Qualifier-2", countries: ["RR", "GT"], start: "2026-05-29T19:30:00" },
-  { id: 74, teams: "Final", countries: ["RCB", "RR"], start: "2026-05-31T19:30:00" }
+  { id: 74, teams: "Final", countries: ["RCB", "GT"], start: "2026-05-31T19:30:00" }
 ];
 
 // Helper: Get Role
